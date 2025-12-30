@@ -11,10 +11,6 @@ import 'models/player_info.dart';
 import 'state/data_storage.dart';
 
 class PacketAnalyzer {
-  static const int _zstdMagic = 0xFD2FB528;
-  static const int _skippableMagicMin = 0x184D2A50;
-  static const int _skippableMagicMax = 0x184D2A5F;
-
   // Method IDs
   static const int _methodSyncNearEntities = 0x00000006;
   static const int _methodSyncContainerData = 0x00000015;
@@ -148,14 +144,6 @@ class PacketAnalyzer {
       }
     } catch (e) {
       // debugPrint("[BM] Failed to parse Return Msg as SyncContainerData: $e");
-    }
-  }
-
-  Future<void> _dispatchMethod(int methodId, Uint8List payload) async {
-    if (methodId == _methodSyncContainerData) {
-      await _processSyncContainerData(payload);
-    } else if (methodId == _methodSyncNearEntities) {
-      await _processSyncNearEntities(payload);
     }
   }
 
@@ -442,7 +430,7 @@ class PacketAnalyzer {
       debugPrint("[BM] SyncNearEntities: ${msg.appear.length} entities");
       for (final entity in msg.appear) {
         // debugPrint("[BM] Entity Type: ${entity.entType.value} UUID: ${entity.uuid}");
-        if (entity.entType != EEntityType.EntChar) continue;
+        if (entity.entType != EEntityType.entChar) continue;
 
         final playerUid = entity.uuid >> 16; // ShiftRight16
         if (playerUid == Int64.ZERO) continue;
@@ -453,22 +441,6 @@ class PacketAnalyzer {
       }
     } catch (e) {
       debugPrint("[BM] Error parsing SyncNearEntities: $e");
-    }
-  }
-
-  String? _tryParseCustomString(Uint8List data) {
-    if (data.length < 8) return null;
-    final view = ByteData.sublistView(data);
-    final length = view.getUint32(0, Endian.little);
-
-    // Check bounds
-    if (length > data.length - 8) return null;
-
-    try {
-      final bytes = data.sublist(8, 8 + length);
-      return utf8.decode(bytes);
-    } catch (e) {
-      return null;
     }
   }
 
@@ -492,7 +464,7 @@ class PacketAnalyzer {
 
       try {
         switch (attrType) {
-          case AttrType.AttrName:
+          case AttrType.attrName:
             try {
               info.name = CodedBufferReader(attr.rawData).readString();
               changed = true;
@@ -501,41 +473,41 @@ class PacketAnalyzer {
                debugPrint("[BM] Failed to parse Name: $e");
             }
             break;
-          case AttrType.AttrProfessionId:
+          case AttrType.attrProfessionId:
             info.professionId = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             debugPrint("[BM] Got Profession for $playerUid: ${info.professionId}");
             break;
-          case AttrType.AttrFightPoint:
+          case AttrType.attrFightPoint:
             info.combatPower = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
-          case AttrType.AttrLevel:
+          case AttrType.attrLevel:
             info.level = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
-          case AttrType.AttrRankLevel:
+          case AttrType.attrRankLevel:
             info.rankLevel = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
-          case AttrType.AttrCri:
+          case AttrType.attrCri:
             info.critical = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
-          case AttrType.AttrLucky:
+          case AttrType.attrLucky:
             info.lucky = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
-          case AttrType.AttrHp:
+          case AttrType.attrHp:
             info.hp = Int64(CodedBufferReader(attr.rawData).readInt32());
             changed = true;
             break;
-          case AttrType.AttrMaxHp:
+          case AttrType.attrMaxHp:
             info.maxHp = Int64(CodedBufferReader(attr.rawData).readInt32());
             changed = true;
             debugPrint("[BM] Updated MY MaxHP from DirtyData: ${info.maxHp}");
             break;
-          case AttrType.AttrUnknown50:
+          case AttrType.attrUnknown50:
              // Just log it for now
              debugPrint("[BM] Got Attr 50 (Len: ${attr.rawData.length})");
              break;
@@ -678,7 +650,7 @@ class PacketAnalyzer {
 
         if (val != 0) {
           final isCrit = (damage.typeFlag & 1) == 1;
-          final isHeal = damage.type == EDamageType.Heal;
+          final isHeal = damage.type == EDamageType.heal;
           final tick = DateTime.now().microsecondsSinceEpoch * 10;
 
           if (!isHeal) {

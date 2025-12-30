@@ -1,17 +1,13 @@
 import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:fixnum/fixnum.dart';
 import 'core/packet_analyzer.dart';
 import 'core/state/data_storage.dart';
-import 'core/models/player_info.dart';
-import 'core/models/dps_data.dart';
 import 'core/models/classes.dart';
 
 void main() {
@@ -38,10 +34,6 @@ class _OverlayWidgetState extends State<OverlayWidget>
   late TabController _tabController;
   List<Map<String, dynamic>> _players = [];
 
-  // Track window size locally to support resizing
-  double _windowWidth = 400;
-  double _windowHeight = 600;
-  
   // Track window position
   double _windowX = 0;
   double _windowY = 0;
@@ -80,9 +72,9 @@ class _OverlayWidgetState extends State<OverlayWidget>
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.8),
+          color: Colors.black.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.blueAccent.withOpacity(0.5)),
+          border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.5)),
         ),
         child: Column(
           children: [
@@ -92,18 +84,15 @@ class _OverlayWidgetState extends State<OverlayWidget>
                 _isDragging = false;
                 try {
                   final pos = await FlutterOverlayWindow.getOverlayPosition();
-                  if (pos != null) {
-                    // Convert physical position (from native) to logical pixels (for Flutter)
-                    final dpr = MediaQuery.of(context).devicePixelRatio;
-                    _windowX = pos.x;
-                    _windowY = pos.y;
-                    _lastMoveX=details.globalPosition.dx;
-                    _lastMoveY=details.globalPosition.dy;
-                    _windowDeltaX=0;
-                    _windowDeltaY=0;
-                    _isDragging = true;
-                  }
-                } catch (e) {
+                  // Convert physical position (from native) to logical pixels (for Flutter)
+                  _windowX = pos.x;
+                  _windowY = pos.y;
+                  _lastMoveX=details.globalPosition.dx;
+                  _lastMoveY=details.globalPosition.dy;
+                  _windowDeltaX=0;
+                  _windowDeltaY=0;
+                  _isDragging = true;
+                                } catch (e) {
                   debugPrint("Error getting overlay position: $e");
                 }
               },
@@ -116,7 +105,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
                 
                 // Simple delta update.
                 // With alignment: OverlayAlignment.topLeft, this should be stable.
-                debugPrint("[BM Overlay] dpr:${dpr} Moving overlay to (${_windowX + _windowDeltaX} [+${details.delta.dx}], ${_windowY + _windowDeltaY} [+${details.delta.dy}])");
+                debugPrint("[BM Overlay] dpr:$dpr Moving overlay to (${_windowX + _windowDeltaX} [+${details.delta.dx}], ${_windowY + _windowDeltaY} [+${details.delta.dy}])");
                 
                 FlutterOverlayWindow.moveOverlay(
                   OverlayPosition(_windowX+_windowDeltaX/dpr, _windowY+_windowDeltaY/dpr),
@@ -181,9 +170,9 @@ class _OverlayWidgetState extends State<OverlayWidget>
                 controller: _tabController,
                 children: [
                   _buildList(null, "dps"),
-                  _buildList(Role.DPS, "dps"),
-                  _buildList(Role.Tank, "taken"),
-                  _buildList(Role.Heal, "heal"),
+                  _buildList(Role.dps, "dps"),
+                  _buildList(Role.tank, "taken"),
+                  _buildList(Role.heal, "heal"),
                 ],
               ),
             ),
@@ -290,7 +279,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
               FractionallySizedBox(
                 widthFactor: percent,
                 child: Container(
-                  color: _getClassColor(cls).withOpacity(0.3),
+                  color: _getClassColor(cls).withValues(alpha: 0.3),
                 ),
               ),
               // Content
@@ -335,11 +324,11 @@ class _OverlayWidgetState extends State<OverlayWidget>
 
   Color _getClassColor(Classes cls) {
     switch (cls.role) {
-      case Role.Tank:
+      case Role.tank:
         return Colors.blue;
-      case Role.Heal:
+      case Role.heal:
         return Colors.green;
-      case Role.DPS:
+      case Role.dps:
         return Colors.red;
       default:
         return Colors.grey;
@@ -488,13 +477,6 @@ class _HomePageState extends State<HomePage> {
     return buffer;
   }
 
-  Future<void> _requestOverlayPermission() async {
-    final status = await FlutterOverlayWindow.isPermissionGranted();
-    if (!status) {
-      await FlutterOverlayWindow.requestPermission();
-    }
-  }
-
   Future<void> _startOverlay() async {
     final bool status = await FlutterOverlayWindow.isPermissionGranted();
     if (!status) {
@@ -584,11 +566,5 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-  }
-
-  String _formatNumber(int num) {
-    if (num >= 1000000) return "${(num / 1000000).toStringAsFixed(1)}M";
-    if (num >= 1000) return "${(num / 1000).toStringAsFixed(1)}K";
-    return num.toString();
   }
 }

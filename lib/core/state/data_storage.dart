@@ -23,19 +23,6 @@ class DataStorage extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadPersistedData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final storedUuidStr = prefs.getString('current_player_uuid');
-      if (storedUuidStr != null) {
-        _currentPlayerUuid = Int64.parseInt(storedUuidStr);
-        debugPrint("[BM] Loaded persisted CurrentPlayerUUID: $_currentPlayerUuid");
-      }
-    } catch (e) {
-      debugPrint("[BM] Error loading persisted data: $e");
-    }
-  }
-
   Future<void> _persistCurrentPlayerUuid(Int64 uuid) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -97,9 +84,7 @@ class DataStorage extends ChangeNotifier {
   void addDamage(Int64 attackerUid, Int64 targetUid, Int64 damage, int tick) {
     // 1. Add Damage Dealt to Attacker
     var attackerData = getOrCreateDpsData(attackerUid);
-    if (attackerData.startLoggedTick == null) {
-      attackerData.startLoggedTick = tick;
-    }
+    attackerData.startLoggedTick ??= tick;
     attackerData.lastLoggedTick = tick;
     attackerData.totalAttackDamage += damage;
     if (attackerData.startLoggedTick != null) {
@@ -108,9 +93,7 @@ class DataStorage extends ChangeNotifier {
 
     // 2. Add Damage Taken to Target
     var targetData = getOrCreateDpsData(targetUid);
-    if (targetData.startLoggedTick == null) {
-      targetData.startLoggedTick = tick;
-    }
+    targetData.startLoggedTick ??= tick;
     targetData.lastLoggedTick = tick;
     targetData.totalTakenDamage += damage;
     if (targetData.startLoggedTick != null) {
@@ -123,9 +106,7 @@ class DataStorage extends ChangeNotifier {
   void addHeal(Int64 healerUid, Int64 targetUid, Int64 healAmount, int tick) {
     // 1. Add Heal Output to Healer
     var healerData = getOrCreateDpsData(healerUid);
-    if (healerData.startLoggedTick == null) {
-      healerData.startLoggedTick = tick;
-    }
+    healerData.startLoggedTick ??= tick;
     healerData.lastLoggedTick = tick;
     healerData.totalHeal += healAmount;
     if (healerData.startLoggedTick != null) {

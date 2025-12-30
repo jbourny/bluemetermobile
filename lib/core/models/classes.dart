@@ -1,24 +1,24 @@
 import '../services/translation_service.dart';
 
 enum Role {
-  Tank,
-  Heal,
-  DPS,
-  Unknown;
+  tank,
+  heal,
+  dps,
+  unknown;
 
   String get localizedName => TranslationService().translate(name);
 }
 
 enum Classes {
-  Unknown(0, "Unknown", Role.Unknown),
-  Stormblade(1, "Stormblade", Role.DPS),
-  FrostMage(2, "FrostMage", Role.DPS),
-  WindKnight(4, "WindKnight", Role.DPS),
-  VerdantOracle(5, "VerdantOracle", Role.Heal),
-  HeavyGuardian(9, "HeavyGuardian", Role.Tank),
-  Marksman(11, "Marksman", Role.DPS),
-  ShieldKnight(12, "ShieldKnight", Role.Tank),
-  SoulMusician(13, "SoulMusician", Role.Heal);
+  unknown(0, "Unknown", Role.unknown),
+  stormblade(1, "Stormblade", Role.dps),
+  frostMage(2, "FrostMage", Role.dps),
+  windKnight(4, "WindKnight", Role.dps),
+  verdantOracle(5, "VerdantOracle", Role.heal),
+  heavyGuardian(9, "HeavyGuardian", Role.tank),
+  marksman(11, "Marksman", Role.dps),
+  shieldKnight(12, "ShieldKnight", Role.tank),
+  soulMusician(13, "SoulMusician", Role.heal);
 
   final int id;
   final String _key;
@@ -29,10 +29,10 @@ enum Classes {
   String get name => TranslationService().translate(_key);
 
   static Classes fromId(int? id) {
-    if (id == null) return Classes.Unknown;
+    if (id == null) return Classes.unknown;
     return Classes.values.firstWhere(
       (e) => e.id == id,
-      orElse: () => Classes.Unknown,
+      orElse: () => Classes.unknown,
     );
   }
 }

@@ -2,26 +2,26 @@ import 'package:protobuf/protobuf.dart';
 import 'package:fixnum/fixnum.dart';
 
 class EDamageType extends ProtobufEnum {
-  static const EDamageType Normal = EDamageType._(0, 'Normal');
-  static const EDamageType Miss = EDamageType._(1, 'Miss');
-  static const EDamageType Heal = EDamageType._(2, 'Heal');
-  static const EDamageType Immune = EDamageType._(3, 'Immune');
-  static const EDamageType Fall = EDamageType._(4, 'Fall');
-  static const EDamageType Absorbed = EDamageType._(5, 'Absorbed');
+  static const EDamageType normal = EDamageType._(0, 'Normal');
+  static const EDamageType miss = EDamageType._(1, 'Miss');
+  static const EDamageType heal = EDamageType._(2, 'Heal');
+  static const EDamageType immune = EDamageType._(3, 'Immune');
+  static const EDamageType fall = EDamageType._(4, 'Fall');
+  static const EDamageType absorbed = EDamageType._(5, 'Absorbed');
 
   static const List<EDamageType> values = <EDamageType> [
-    Normal, Miss, Heal, Immune, Fall, Absorbed,
+    normal, miss, heal, immune, fall, absorbed,
   ];
 
   static final Map<int, EDamageType> _byValue = ProtobufEnum.initByValue(values);
   static EDamageType? valueOf(int value) => _byValue[value];
 
-  const EDamageType._(int v, String n) : super(v, n);
+  const EDamageType._(super.v, super.n);
 }
 
 class SyncDamageInfo extends GeneratedMessage {
   static final BuilderInfo _i = BuilderInfo('SyncDamageInfo', package: const PackageName('BlueProto'), createEmptyInstance: create)
-    ..e<EDamageType>(4, 'type', PbFieldType.OE, defaultOrMaker: EDamageType.Normal, valueOf: EDamageType.valueOf, enumValues: EDamageType.values)
+    ..e<EDamageType>(4, 'type', PbFieldType.OE, defaultOrMaker: EDamageType.normal, valueOf: EDamageType.valueOf, enumValues: EDamageType.values)
     ..a<int>(5, 'typeFlag', PbFieldType.O3)
     ..aInt64(6, 'value')
     ..aInt64(8, 'luckyValue')
@@ -386,23 +386,23 @@ class SyncNearDeltaInfo extends GeneratedMessage {
 }
 
 class EEntityType extends ProtobufEnum {
-  static const EEntityType EntMonster = EEntityType._(1, 'EntMonster');
-  static const EEntityType EntChar = EEntityType._(10, 'EntChar');
+  static const EEntityType entMonster = EEntityType._(1, 'EntMonster');
+  static const EEntityType entChar = EEntityType._(10, 'EntChar');
 
   static const List<EEntityType> values = <EEntityType> [
-    EntMonster, EntChar,
+    entMonster, entChar,
   ];
 
   static final Map<int, EEntityType> _byValue = ProtobufEnum.initByValue(values);
   static EEntityType? valueOf(int value) => _byValue[value];
 
-  const EEntityType._(int v, String n) : super(v, n);
+  const EEntityType._(super.v, super.n);
 }
 
 class Entity extends GeneratedMessage {
   static final BuilderInfo _i = BuilderInfo('Entity', package: const PackageName('BlueProto'), createEmptyInstance: create)
     ..aInt64(1, 'uuid')
-    ..e<EEntityType>(2, 'entType', PbFieldType.OE, defaultOrMaker: EEntityType.EntMonster, valueOf: EEntityType.valueOf, enumValues: EEntityType.values)
+    ..e<EEntityType>(2, 'entType', PbFieldType.OE, defaultOrMaker: EEntityType.entMonster, valueOf: EEntityType.valueOf, enumValues: EEntityType.values)
     ..aOM<AttrCollection>(3, 'attrs', subBuilder: AttrCollection.create)
     ..hasRequiredFields = false;
 
