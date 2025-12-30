@@ -10,6 +10,7 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -74,6 +75,7 @@ class PacketCaptureService : VpnService() {
 
     // Signature to detect game traffic: 00 63 33 53 42 00
     private val serverSignature = byteArrayOf(0x00, 0x63, 0x33, 0x53, 0x42, 0x00)
+    private val validGameSessions = ConcurrentHashMap.newKeySet<String>()
 
     private fun startCapture() {
         if (isRunning) return
@@ -81,24 +83,30 @@ class PacketCaptureService : VpnService() {
         
         // Schedule flush task
         flushTask = flushExecutor.scheduleAtFixedRate({
-            synchronized(bufferLock) {
-                if (dataBuffer.size() > 0) {
-                    val intent = Intent("com.bluemeter.mobile.PACKET_DATA")
-                    intent.putExtra("data", dataBuffer.toByteArray())
-                    intent.setPackage(packageName)
-                    sendBroadcast(intent)
-                    dataBuffer.reset()
-                }
-            }
-        }, 100, 100, TimeUnit.MILLISECONDS)
+            flushData()
+        }, 50, 50, TimeUnit.MILLISECONDS)
 
         tcpProxy = TcpProxy(this, ::obtainBuffer) { source, data ->
             // Filter out HTTPS traffic
             if (source.contains("destPort=443")) return@TcpProxy
 
-            // Forward all other traffic to Flutter for analysis
-            synchronized(bufferLock) {
-                dataBuffer.write(data)
+            // Check for game session
+            if (!validGameSessions.contains(source)) {
+                if (indexOf(data, serverSignature) != -1) {
+                    validGameSessions.add(source)
+                    Log.i("BlueMeter", "Game session detected: $source")
+                }
+            }
+
+            // Only forward data from valid game sessions
+            if (validGameSessions.contains(source)) {
+                synchronized(bufferLock) {
+                    dataBuffer.write(data)
+                    // Flush immediately if buffer gets too large to avoid Binder transaction limit
+                    if (dataBuffer.size() > 200 * 1024) {
+                        flushData()
+                    }
+                }
             }
         }
 
@@ -129,6 +137,35 @@ class PacketCaptureService : VpnService() {
         mInterface = null
         udpChannels.values.forEach { try { it.close() } catch (e: Exception) {} }
         udpChannels.clear()
+    }
+
+    private fun flushData() {
+        synchronized(bufferLock) {
+            if (dataBuffer.size() > 0) {
+                val intent = Intent("com.bluemeter.mobile.PACKET_DATA")
+                intent.putExtra("data", dataBuffer.toByteArray())
+                intent.setPackage(packageName)
+                sendBroadcast(intent)
+                dataBuffer.reset()
+            }
+        }
+    }
+
+    private fun indexOf(data: ByteArray, pattern: ByteArray): Int {
+        if (pattern.isEmpty()) return 0
+        if (data.size < pattern.size) return -1
+        
+        for (i in 0..data.size - pattern.size) {
+            var found = true
+            for (j in pattern.indices) {
+                if (data[i + j] != pattern[j]) {
+                    found = false
+                    break
+                }
+            }
+            if (found) return i
+        }
+        return -1
     }
 
     private fun runCaptureLoop() {
