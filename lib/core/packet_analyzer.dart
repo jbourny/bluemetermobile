@@ -271,6 +271,22 @@ class PacketAnalyzer {
           changed = true;
         }
 
+        if (msg.vData.hasRoleLevel()) {
+           info.level = msg.vData.roleLevel.level;
+           changed = true;
+        }
+        
+        if (msg.vData.hasAttr()) {
+           if (msg.vData.attr.hasCurHp()) {
+             info.hp = msg.vData.attr.curHp;
+             changed = true;
+           }
+           if (msg.vData.attr.hasMaxHp()) {
+             info.maxHp = msg.vData.attr.maxHp;
+             changed = true;
+           }
+        }
+
         if (changed) {
           storage.updatePlayerInfo(info);
           debugPrint("[BM] Updated MY player info: $info");
@@ -358,8 +374,61 @@ class PacketAnalyzer {
              storage.updatePlayerInfo(info);
              debugPrint("[BM] Updated MY CP from DirtyData: $cp");
            }
+        } else if (fieldIndex == 16) {
+           // HP
+           if (!_doesStreamHaveIdentifier(reader)) {
+             debugPrint("[BM] DirtyData inner stream missing identifier (HP)");
+             return;
+           }
+           
+           final innerFieldIndex = reader.readUInt32LE();
+           reader.readInt32LE(); // Skip
+           
+           final storageUid = playerUid >> 16;
+           final info = (await storage.getPlayerInfo(storageUid)) ?? PlayerInfo(uid: storageUid);
+           bool changed = false;
+
+           if (innerFieldIndex == 1) {
+             // CurHP
+             final curHp = reader.readUInt32LE();
+             info.hp = Int64(curHp);
+             changed = true;
+             debugPrint("[BM] Updated MY CurHP from DirtyData: $curHp");
+           } else if (innerFieldIndex == 2) {
+             // MaxHP
+             final maxHp = reader.readUInt32LE();
+             info.maxHp = Int64(maxHp);
+             changed = true;
+             debugPrint("[BM] Updated MY MaxHP from DirtyData: $maxHp");
+           }
+           
+           if (changed) {
+             storage.updatePlayerInfo(info);
+           }
+        } else if (fieldIndex == 61) {
+           // Profession
+           if (!_doesStreamHaveIdentifier(reader)) {
+             debugPrint("[BM] DirtyData inner stream missing identifier (Profession)");
+             return;
+           }
+           
+           final innerFieldIndex = reader.readUInt32LE();
+           reader.readInt32LE(); // Skip
+           
+           if (innerFieldIndex == 1) {
+             final curProfessionId = reader.readUInt32LE();
+             reader.readInt32LE(); // Skip
+             
+             if (curProfessionId != 0) {
+               final storageUid = playerUid >> 16;
+               final info = (await storage.getPlayerInfo(storageUid)) ?? PlayerInfo(uid: storageUid);
+               info.professionId = curProfessionId;
+               storage.updatePlayerInfo(info);
+               debugPrint("[BM] Updated MY Profession from DirtyData: $curProfessionId");
+             }
+           }
         } else {
-           debugPrint("[BM] DirtyData FieldIndex $fieldIndex ignored (Not 2)");
+           debugPrint("[BM] DirtyData FieldIndex $fieldIndex ignored");
         }
       }
     } catch (e) {
@@ -372,7 +441,7 @@ class PacketAnalyzer {
       final msg = SyncNearEntities.fromBuffer(payload);
       debugPrint("[BM] SyncNearEntities: ${msg.appear.length} entities");
       for (final entity in msg.appear) {
-        debugPrint("[BM] Entity Type: ${entity.entType.value} UUID: ${entity.uuid}");
+        // debugPrint("[BM] Entity Type: ${entity.entType.value} UUID: ${entity.uuid}");
         if (entity.entType != EEntityType.EntChar) continue;
 
         final playerUid = entity.uuid >> 16; // ShiftRight16
@@ -380,8 +449,6 @@ class PacketAnalyzer {
 
         if (entity.hasAttrs()) {
           await _processPlayerAttrs(playerUid, entity.attrs.attrs);
-        } else {
-           debugPrint("[BM] Entity $playerUid has no attrs");
         }
       }
     } catch (e) {
@@ -412,86 +479,32 @@ class PacketAnalyzer {
 
     bool changed = false;
     
-    // Debug: Print all received attributes
-    final attrIds = attrs.map((a) => a.id).toList();
-    debugPrint("Processing attrs for $playerUid: $attrIds");
+    debugPrint("[BM] Processing attrs for $playerUid. Count: ${attrs.length}");
 
     for (final attr in attrs) {
       if (!attr.hasId() || !attr.hasRawData()) continue;
 
-      // Dump raw data for ALL attributes to find the name
-      final hex = attr.rawData.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
-      if (attr.rawData.length > 0) {
-         // Try to decode as string to see if it looks like text
-         String asText = "";
-         try {
-           asText = utf8.decode(attr.rawData, allowMalformed: true);
-           // Remove control chars for display
-           asText = asText.replaceAll(RegExp(r'[\x00-\x1F]'), '.');
-         } catch (_) {}
-         debugPrint("[BM] Attr ID=${attr.id} Len=${attr.rawData.length} Hex=$hex Text=$asText");
-      }
-
-      final reader = CodedBufferReader(attr.rawData);
       final attrType = AttrType.fromValue(attr.id);
-
       if (attrType == null) {
-        // Debug unknown attr
-        // debugPrint("Unknown Attr ID: ${attr.id}");
-        continue;
-      }
-
-      // Explicitly log when we find AttrName (ID 1)
-      if (attrType == AttrType.AttrName) {
-         debugPrint("[BM] Found AttrName (ID 1). RawData Len: ${attr.rawData.length}");
+         debugPrint("[BM] Unknown Attr ID: ${attr.id} Len: ${attr.rawData.length}");
+         continue;
       }
 
       try {
         switch (attrType) {
           case AttrType.AttrName:
-            // Debug raw bytes
-            // final hex = attr.rawData.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
-            // debugPrint("[BM] Attr Name ID=${attr.id} Raw: $hex");
-
-            String? parsedName;
-
-            // 1. Try Protobuf String (Varint Length + Bytes)
             try {
-              final r = CodedBufferReader(attr.rawData);
-              parsedName = r.readString();
-            } catch (e) {
-               debugPrint("[BM] Failed to readString for Name: $e");
-            }
-
-            // 2. Try Custom String Format (4-byte length prefix)
-            if (parsedName == null || parsedName.isEmpty) {
-               parsedName = _tryParseCustomString(Uint8List.fromList(attr.rawData));
-            }
-
-            // 3. Try Raw UTF-8 (fallback)
-            if (parsedName == null || parsedName.isEmpty) {
-              try {
-                parsedName = utf8.decode(attr.rawData);
-              } catch (_) {}
-            }
-
-            if (parsedName != null && parsedName.isNotEmpty) {
-              // Filter out control characters if it looks like garbage
-              // But allow some if it's just a prefix we missed
-              // The logs showed names starting with . (06) which is length.
-              // readString() consumes the length.
-              
-              info.name = parsedName;
-              debugPrint("[BM] Parsed Name for $playerUid: $parsedName");
+              info.name = CodedBufferReader(attr.rawData).readString();
               changed = true;
-            } else {
-               debugPrint("[BM] Name parsing failed for ID 1. Raw: $hex");
+              debugPrint("[BM] Got Name for $playerUid: ${info.name}");
+            } catch (e) {
+               debugPrint("[BM] Failed to parse Name: $e");
             }
             break;
           case AttrType.AttrProfessionId:
-            // Create new reader for each field to avoid position issues
             info.professionId = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
+            debugPrint("[BM] Got Profession for $playerUid: ${info.professionId}");
             break;
           case AttrType.AttrFightPoint:
             info.combatPower = CodedBufferReader(attr.rawData).readInt32();
@@ -520,7 +533,12 @@ class PacketAnalyzer {
           case AttrType.AttrMaxHp:
             info.maxHp = Int64(CodedBufferReader(attr.rawData).readInt32());
             changed = true;
+            debugPrint("[BM] Updated MY MaxHP from DirtyData: ${info.maxHp}");
             break;
+          case AttrType.AttrUnknown50:
+             // Just log it for now
+             debugPrint("[BM] Got Attr 50 (Len: ${attr.rawData.length})");
+             break;
           default:
             break;
         }
@@ -538,15 +556,60 @@ class PacketAnalyzer {
     try {
       final msg = SyncToMeDeltaInfo.fromBuffer(payload);
 
-      // Update CurrentPlayerUUID if available
-      if (msg.hasDeltaInfo() && msg.deltaInfo.hasBaseDelta()) {
-        final uuid = msg.deltaInfo.baseDelta.uuid;
+      if (msg.hasDeltaInfo()) {
         final storage = DataStorage();
-        if (uuid != Int64.ZERO && storage.currentPlayerUuid != uuid) {
-          storage.currentPlayerUuid = uuid;
-          debugPrint("[BM] Updated CurrentPlayerUUID from SyncToMeDeltaInfo: $uuid");
+        Int64 currentUuid = Int64.ZERO;
+        
+        // 1. Determine UUID from the packet
+        if (msg.deltaInfo.hasUuid()) {
+           currentUuid = msg.deltaInfo.uuid;
+        } else if (msg.deltaInfo.hasBaseDelta() && msg.deltaInfo.baseDelta.hasUuid()) {
+           currentUuid = msg.deltaInfo.baseDelta.uuid;
         }
-        await _processAoiSyncDelta(msg.deltaInfo.baseDelta);
+
+        // 2. Update Storage UUID and PlayerInfo if we found a valid UUID
+        if (currentUuid != Int64.ZERO) {
+           if (storage.currentPlayerUuid != currentUuid) {
+             storage.currentPlayerUuid = currentUuid;
+             debugPrint("[BM] Updated CurrentPlayerUUID: $currentUuid");
+           }
+           
+           // 3. Ensure PlayerInfo exists and has a name (fallback to "Moi")
+           final shortUuid = currentUuid >> 16;
+           PlayerInfo? info = await storage.getPlayerInfo(shortUuid);
+           
+           if (info == null || (info.name == null || info.name!.isEmpty)) {
+              info ??= PlayerInfo(uid: shortUuid);
+              info.name = "Moi";
+              storage.updatePlayerInfo(info);
+              debugPrint("[BM] Set default name 'Moi' for current player ($shortUuid)");
+           }
+        }
+
+        if (msg.deltaInfo.hasBaseDelta()) {
+          // debugPrint("[BM] SyncToMeDeltaInfo has BaseDelta. HasAttrs: ${msg.deltaInfo.baseDelta.hasAttrs()} UUID: ${msg.deltaInfo.baseDelta.uuid}");
+          
+          // Fix: If baseDelta has attributes but (no UUID OR UUID is 0), use the UUID from deltaInfo (or storage)
+          // This is common in SyncToMeDeltaInfo where the UUID is in the parent message
+          bool needsUuidInjection = msg.deltaInfo.baseDelta.hasAttrs() && 
+                                    (!msg.deltaInfo.baseDelta.hasUuid() || msg.deltaInfo.baseDelta.uuid == Int64.ZERO);
+
+          if (needsUuidInjection) {
+             Int64 targetUuid = Int64.ZERO;
+             if (currentUuid != Int64.ZERO) {
+               targetUuid = currentUuid;
+             } else {
+               targetUuid = storage.currentPlayerUuid;
+             }
+             
+             if (targetUuid != Int64.ZERO) {
+               // debugPrint("[BM] Processing attributes for ME (UUID: $targetUuid) from SyncToMeDeltaInfo (Injection)");
+               await _processPlayerAttrs(targetUuid >> 16, msg.deltaInfo.baseDelta.attrs.attrs);
+             }
+          }
+
+          await _processAoiSyncDelta(msg.deltaInfo.baseDelta);
+        }
       }
     } catch (e) {
       debugPrint("Error parsing SyncToMeDeltaInfo: $e");
@@ -570,13 +633,28 @@ class PacketAnalyzer {
       final targetUuidRaw = delta.uuid;
       final targetSuffix = targetUuidRaw.toInt() & 0xFFFF;
       final targetUuid = targetUuidRaw >> 16;
+      
+      // debugPrint("[BM] AoiSyncDelta UUID: $targetUuidRaw Suffix: $targetSuffix HasAttrs: ${delta.hasAttrs()}");
 
       if (delta.hasAttrs()) {
         // Check if target is player (IsUuidPlayerRaw logic from C#)
         // C# IsUuidPlayerRaw: (uuid & 0xFFFF) == 640
         // But logs show UUID ending in 0x640 (1600), so we accept both.
         if (targetSuffix == 640 || targetSuffix == 1600) {
+          debugPrint("[BM] Target is player ($targetUuid). Processing attrs...");
+          
+          // Debug: Print raw bytes of attrs if empty
+          if (delta.attrs.attrs.isEmpty) {
+             debugPrint("[BM] Attrs list is empty. Checking MapAttrs...");
+             // Check if mapAttrs has anything (just in case)
+             if (delta.attrs.mapAttrs.isNotEmpty) {
+                debugPrint("[BM] MapAttrs has ${delta.attrs.mapAttrs.length} items.");
+             }
+          }
+          
           await _processPlayerAttrs(targetUuid, delta.attrs.attrs);
+        } else {
+          debugPrint("[BM] Target is NOT player ($targetUuid). Suffix: $targetSuffix");
         }
       }
     

@@ -224,6 +224,7 @@ class AttrCollection extends GeneratedMessage {
   void clearUuid() => clearField(1);
 
   List<Attr> get attrs => $_getList(1);
+  List<MapAttr> get mapAttrs => $_getList(2);
 }
 
 class SkillEffect extends GeneratedMessage {
@@ -300,6 +301,7 @@ class AoiSyncDelta extends GeneratedMessage {
 class AoiSyncToMeDelta extends GeneratedMessage {
   static final BuilderInfo _i = BuilderInfo('AoiSyncToMeDelta', package: const PackageName('BlueProto'), createEmptyInstance: create)
     ..aOM<AoiSyncDelta>(1, 'baseDelta', subBuilder: AoiSyncDelta.create)
+    ..aInt64(5, 'uuid')
     ..hasRequiredFields = false;
 
   AoiSyncToMeDelta() : super();
@@ -323,6 +325,11 @@ class AoiSyncToMeDelta extends GeneratedMessage {
   set baseDelta(AoiSyncDelta v) { setField(1, v); }
   bool hasBaseDelta() => $_has(0);
   void clearBaseDelta() => clearField(1);
+
+  Int64 get uuid => $_getI64(1);
+  set uuid(Int64 v) { $_setInt64(1, v); }
+  bool hasUuid() => $_has(1);
+  void clearUuid() => clearField(5);
 }
 
 class SyncToMeDeltaInfo extends GeneratedMessage {
@@ -525,10 +532,74 @@ class ProfessionList extends GeneratedMessage {
   void clearCurProfessionId() => clearField(1);
 }
 
+class RoleLevel extends GeneratedMessage {
+  static final BuilderInfo _i = BuilderInfo('RoleLevel', package: const PackageName('BlueProto'), createEmptyInstance: create)
+    ..a<int>(1, 'level', PbFieldType.O3)
+    ..hasRequiredFields = false;
+
+  RoleLevel() : super();
+  RoleLevel.fromBuffer(List<int> i, [ExtensionRegistry r = ExtensionRegistry.EMPTY]) : super() {
+    mergeFromBuffer(i, r);
+  }
+  
+  @override
+  RoleLevel clone() => RoleLevel()..mergeFromMessage(this);
+  @override
+  RoleLevel createEmptyInstance() => create();
+  @override
+  BuilderInfo get info_ => _i;
+
+  static RoleLevel create() => RoleLevel();
+  static PbList<RoleLevel> createRepeated() => PbList<RoleLevel>();
+  static RoleLevel getDefault() => _defaultInstance ??= create()..freeze();
+  static RoleLevel? _defaultInstance;
+
+  int get level => $_getIZ(0);
+  set level(int v) { $_setSignedInt32(0, v); }
+  bool hasLevel() => $_has(0);
+  void clearLevel() => clearField(1);
+}
+
+class UserFightAttr extends GeneratedMessage {
+  static final BuilderInfo _i = BuilderInfo('UserFightAttr', package: const PackageName('BlueProto'), createEmptyInstance: create)
+    ..aInt64(1, 'curHp')
+    ..aInt64(2, 'maxHp')
+    ..hasRequiredFields = false;
+
+  UserFightAttr() : super();
+  UserFightAttr.fromBuffer(List<int> i, [ExtensionRegistry r = ExtensionRegistry.EMPTY]) : super() {
+    mergeFromBuffer(i, r);
+  }
+  
+  @override
+  UserFightAttr clone() => UserFightAttr()..mergeFromMessage(this);
+  @override
+  UserFightAttr createEmptyInstance() => create();
+  @override
+  BuilderInfo get info_ => _i;
+
+  static UserFightAttr create() => UserFightAttr();
+  static PbList<UserFightAttr> createRepeated() => PbList<UserFightAttr>();
+  static UserFightAttr getDefault() => _defaultInstance ??= create()..freeze();
+  static UserFightAttr? _defaultInstance;
+
+  Int64 get curHp => $_getI64(0);
+  set curHp(Int64 v) { $_setInt64(0, v); }
+  bool hasCurHp() => $_has(0);
+  void clearCurHp() => clearField(1);
+
+  Int64 get maxHp => $_getI64(1);
+  set maxHp(Int64 v) { $_setInt64(1, v); }
+  bool hasMaxHp() => $_has(1);
+  void clearMaxHp() => clearField(2);
+}
+
 class VData extends GeneratedMessage {
   static final BuilderInfo _i = BuilderInfo('VData', package: const PackageName('BlueProto'), createEmptyInstance: create)
     ..aInt64(1, 'charId')
     ..aOM<CharBase>(2, 'charBase', subBuilder: CharBase.create)
+    ..aOM<UserFightAttr>(16, 'attr', subBuilder: UserFightAttr.create)
+    ..aOM<RoleLevel>(22, 'roleLevel', subBuilder: RoleLevel.create)
     ..aOM<ProfessionList>(76, 'professionList', subBuilder: ProfessionList.create)
     ..hasRequiredFields = false;
 
@@ -559,9 +630,19 @@ class VData extends GeneratedMessage {
   bool hasCharBase() => $_has(1);
   void clearCharBase() => clearField(2);
 
-  ProfessionList get professionList => $_getN(2);
+  UserFightAttr get attr => $_getN(2);
+  set attr(UserFightAttr v) { setField(16, v); }
+  bool hasAttr() => $_has(2);
+  void clearAttr() => clearField(16);
+
+  RoleLevel get roleLevel => $_getN(3);
+  set roleLevel(RoleLevel v) { setField(22, v); }
+  bool hasRoleLevel() => $_has(3);
+  void clearRoleLevel() => clearField(22);
+
+  ProfessionList get professionList => $_getN(4);
   set professionList(ProfessionList v) { setField(76, v); }
-  bool hasProfessionList() => $_has(2);
+  bool hasProfessionList() => $_has(4);
   void clearProfessionList() => clearField(76);
 }
 

@@ -18,7 +18,7 @@ class DataStorage extends ChangeNotifier {
   set currentPlayerUuid(Int64 value) {
     if (_currentPlayerUuid != value) {
       _currentPlayerUuid = value;
-      // _persistCurrentPlayerUuid(value);
+      _persistCurrentPlayerUuid(value);
       notifyListeners();
     }
   }

@@ -2,17 +2,20 @@ enum AttrType {
   AttrName(1),
   AttrId(10),
   AttrProfessionId(0xDC),
-  AttrFightPoint(51),
-  AttrLevel(50),
+  AttrFightPoint(0x272E),
+  AttrLevel(0x2710),
   AttrRankLevel(0x274C),
   AttrCri(0x2B66),
   AttrLucky(0x2B7A),
-  AttrHp(52),
-  AttrMaxHp(53),
+  AttrHp(0x2C2E),
+  AttrMaxHp(0x2C38),
   AttrElementFlag(0x646D6C),
   AttrReductionLevel(0x64696D),
   AttrReduntionId(0x6F6C65),
-  AttrEnergyFlag(0x543CD3C6);
+  AttrEnergyFlag(0x543CD3C6),
+  
+  // Unknown but seen in logs
+  AttrUnknown50(50);
 
   final int value;
   const AttrType(this.value);
