@@ -1,26 +1,32 @@
+import '../services/translation_service.dart';
+
 enum Role {
   Tank,
   Heal,
   DPS,
-  Unknown
+  Unknown;
+
+  String get localizedName => TranslationService().translate(name);
 }
 
 enum Classes {
   Unknown(0, "Unknown", Role.Unknown),
-  Stormblade(1, "雷影剑士", Role.DPS),
-  FrostMage(2, "冰魔导师", Role.DPS),
-  WindKnight(4, "青岚骑士", Role.DPS),
-  VerdantOracle(5, "森语者", Role.Heal),
-  HeavyGuardian(9, "巨刃守护者", Role.Tank),
-  Marksman(11, "神射手", Role.DPS),
-  ShieldKnight(12, "神盾骑士", Role.Tank),
-  SoulMusician(13, "灵魂乐手", Role.Heal);
+  Stormblade(1, "Stormblade", Role.DPS),
+  FrostMage(2, "FrostMage", Role.DPS),
+  WindKnight(4, "WindKnight", Role.DPS),
+  VerdantOracle(5, "VerdantOracle", Role.Heal),
+  HeavyGuardian(9, "HeavyGuardian", Role.Tank),
+  Marksman(11, "Marksman", Role.DPS),
+  ShieldKnight(12, "ShieldKnight", Role.Tank),
+  SoulMusician(13, "SoulMusician", Role.Heal);
 
   final int id;
-  final String name;
+  final String _key;
   final Role role;
 
-  const Classes(this.id, this.name, this.role);
+  const Classes(this.id, this._key, this.role);
+
+  String get name => TranslationService().translate(_key);
 
   static Classes fromId(int? id) {
     if (id == null) return Classes.Unknown;
