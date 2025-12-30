@@ -567,50 +567,62 @@ class PacketAnalyzer {
   void _processAoiSyncDelta(AoiSyncDelta delta) {
     if (delta.hasUuid()) {
       // Check for attributes update in delta
+      final targetUuidRaw = delta.uuid;
+      final targetSuffix = targetUuidRaw.toInt() & 0xFFFF;
+      final targetUuid = targetUuidRaw >> 16;
+
       if (delta.hasAttrs()) {
-        final targetUuidRaw = delta.uuid;
         // Check if target is player (IsUuidPlayerRaw logic from C#)
         // C# IsUuidPlayerRaw: (uuid & 0xFFFF) == 640
         // But logs show UUID ending in 0x640 (1600), so we accept both.
-        final suffix = targetUuidRaw.toInt() & 0xFFFF;
-        if (suffix == 640 || suffix == 1600) {
-          final targetUuid = targetUuidRaw >> 16;
+        if (targetSuffix == 640 || targetSuffix == 1600) {
           _processPlayerAttrs(targetUuid, delta.attrs.attrs);
         }
       }
-    }
+    
 
-    if (!delta.hasSkillEffects()) return;
+      if (!delta.hasSkillEffects()) return;
 
-    for (final damage in delta.skillEffects.damages) {
-      final attackerRaw = damage.topSummonerId != Int64.ZERO
-          ? damage.topSummonerId
-          : damage.attackerUuid;
-      if (attackerRaw == Int64.ZERO) continue;
+      for (final damage in delta.skillEffects.damages) {
+        final attackerRaw = damage.topSummonerId != Int64.ZERO
+            ? damage.topSummonerId
+            : damage.attackerUuid;
+        if (attackerRaw == Int64.ZERO) continue;
 
-      final attackerUuid = attackerRaw >> 16;
+        final attackerUuid = attackerRaw >> 16;
 
-      int val = 0;
-      if (damage.hasValue()) {
-        val = damage.value.toInt();
-      } else if (damage.hasLuckyValue()) {
-        val = damage.luckyValue.toInt();
-      }
+        int val = 0;
+        if (damage.hasValue()) {
+          val = damage.value.toInt();
+        } else if (damage.hasLuckyValue()) {
+          val = damage.luckyValue.toInt();
+        }
 
-      if (val != 0) {
-        final isCrit = (damage.typeFlag & 1) == 1;
-        final isHeal = damage.type == EDamageType.Heal;
+        if (val != 0) {
+          final isCrit = (damage.typeFlag & 1) == 1;
+          final isHeal = damage.type == EDamageType.Heal;
+          final tick = DateTime.now().microsecondsSinceEpoch * 10;
 
-        if (!isHeal) {
-          // debugPrint("Damage detected: $val (Crit: $isCrit) from $attackerUuid");
-          onDamageDetected(val.abs(), isCrit);
+          if (!isHeal) {
+            // debugPrint("Damage detected: $val (Crit: $isCrit) from $attackerUuid");
+            onDamageDetected(val.abs(), isCrit);
 
-          // Update DataStorage
-          DataStorage().addDamage(
-            attackerUuid,
-            Int64(val.abs()),
-            DateTime.now().microsecondsSinceEpoch * 10,
-          ); // Approx ticks
+            // Update DataStorage
+            DataStorage().addDamage(
+              attackerUuid,
+              targetUuid,
+              Int64(val.abs()),
+              tick,
+            ); 
+          } else {
+             // Handle Heal
+             DataStorage().addHeal(
+               attackerUuid,
+               targetUuid,
+               Int64(val.abs()),
+               tick,
+             );
+          }
         }
       }
     }

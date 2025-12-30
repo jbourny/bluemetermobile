@@ -67,20 +67,46 @@ class DataStorage extends ChangeNotifier {
     return _fullDpsDatas[uid]!;
   }
 
-  void addDamage(Int64 uid, Int64 damage, int tick) {
-    var data = getOrCreateDpsData(uid);
-    
-    if (data.startLoggedTick == null) {
-      data.startLoggedTick = tick;
+  void addDamage(Int64 attackerUid, Int64 targetUid, Int64 damage, int tick) {
+    // 1. Add Damage Dealt to Attacker
+    var attackerData = getOrCreateDpsData(attackerUid);
+    if (attackerData.startLoggedTick == null) {
+      attackerData.startLoggedTick = tick;
     }
-    data.lastLoggedTick = tick;
-    data.totalAttackDamage += damage;
-    
-    // Simple active time calculation (refine later)
-    if (data.startLoggedTick != null) {
-       data.activeCombatTicks = tick - data.startLoggedTick!;
+    attackerData.lastLoggedTick = tick;
+    attackerData.totalAttackDamage += damage;
+    if (attackerData.startLoggedTick != null) {
+       attackerData.activeCombatTicks = tick - attackerData.startLoggedTick!;
     }
 
+    // 2. Add Damage Taken to Target
+    var targetData = getOrCreateDpsData(targetUid);
+    if (targetData.startLoggedTick == null) {
+      targetData.startLoggedTick = tick;
+    }
+    targetData.lastLoggedTick = tick;
+    targetData.totalTakenDamage += damage;
+    if (targetData.startLoggedTick != null) {
+       targetData.activeCombatTicks = tick - targetData.startLoggedTick!;
+    }
+
+    notifyListeners();
+  }
+
+  void addHeal(Int64 healerUid, Int64 targetUid, Int64 healAmount, int tick) {
+    // 1. Add Heal Output to Healer
+    var healerData = getOrCreateDpsData(healerUid);
+    if (healerData.startLoggedTick == null) {
+      healerData.startLoggedTick = tick;
+    }
+    healerData.lastLoggedTick = tick;
+    healerData.totalHeal += healAmount;
+    if (healerData.startLoggedTick != null) {
+       healerData.activeCombatTicks = tick - healerData.startLoggedTick!;
+    }
+
+    // We could also track "Heal Received" on target if needed, but usually HPS is about output.
+    
     notifyListeners();
   }
 

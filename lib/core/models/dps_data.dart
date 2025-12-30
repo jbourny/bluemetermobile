@@ -31,4 +31,18 @@ class DpsData {
     if (seconds <= 0) return 0.0;
     return totalAttackDamage.toDouble() / seconds;
   }
+
+  double get simpleHps {
+    if (startLoggedTick == null || lastLoggedTick <= startLoggedTick!) return 0.0;
+    double seconds = (lastLoggedTick - startLoggedTick!) / 10000000.0;
+    if (seconds <= 0) return 0.0;
+    return totalHeal.toDouble() / seconds;
+  }
+
+  double get simpleTakenDps {
+    if (startLoggedTick == null || lastLoggedTick <= startLoggedTick!) return 0.0;
+    double seconds = (lastLoggedTick - startLoggedTick!) / 10000000.0;
+    if (seconds <= 0) return 0.0;
+    return totalTakenDamage.toDouble() / seconds;
+  }
 }

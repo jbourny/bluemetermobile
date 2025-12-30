@@ -102,14 +102,16 @@ class _OverlayWidgetState extends State<OverlayWidget>
                 );
               },
               child: Container(
-                height: 40,
+                height: 32, // Reduced height
                 color: Colors.transparent, // Hit test
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(
                   children: [
                     Expanded(
                       child: TabBar(
                         controller: _tabController,
                         labelPadding: EdgeInsets.zero,
+                        indicatorSize: TabBarIndicatorSize.label,
                         tabs: const [
                           Tab(text: "All"),
                           Tab(text: "DPS"),
@@ -118,12 +120,29 @@ class _OverlayWidgetState extends State<OverlayWidget>
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    // Reset Button
                     IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        size: 16,
-                        color: Colors.white,
-                      ),
+                      icon: const Icon(Icons.refresh, size: 16, color: Colors.white70),
+                      tooltip: "Reset",
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () async {
+                         final sendPort = IsolateNameServer.lookupPortByName('overlay_communication_port');
+                         if (sendPort != null) {
+                           sendPort.send("RESET");
+                         } else {
+                           debugPrint("Could not find communication port");
+                         }
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    // Settings (Close) Button
+                    IconButton(
+                      icon: const Icon(Icons.settings, size: 16, color: Colors.white70),
+                      tooltip: "Settings",
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                       onPressed: () async {
                         await FlutterOverlayWindow.closeOverlay();
                       },
@@ -136,10 +155,10 @@ class _OverlayWidgetState extends State<OverlayWidget>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildList(null),
-                  _buildList(Role.DPS),
-                  _buildList(Role.Tank),
-                  _buildList(Role.Heal),
+                  _buildList(null, "dps"),
+                  _buildList(Role.DPS, "dps"),
+                  _buildList(Role.Tank, "taken"),
+                  _buildList(Role.Heal, "heal"),
                 ],
               ),
             ),
@@ -151,8 +170,8 @@ class _OverlayWidgetState extends State<OverlayWidget>
                   _windowHeight += details.delta.dy;
 
                   // Min size constraints
-                  if (_windowWidth < 200) _windowWidth = 200;
-                  if (_windowHeight < 200) _windowHeight = 200;
+                  if (_windowWidth < 150) _windowWidth = 150;
+                  if (_windowHeight < 100) _windowHeight = 100;
                 });
               },
               onPanEnd: (details) async {
@@ -164,11 +183,11 @@ class _OverlayWidgetState extends State<OverlayWidget>
               },
               child: Container(
                 width: double.infinity,
-                height: 30,
+                height: 20,
                 color: Colors.transparent,
                 alignment: Alignment.bottomRight,
-                padding: const EdgeInsets.only(right: 8, bottom: 8),
-                child: const Icon(Icons.drag_handle, color: Colors.white54),
+                padding: const EdgeInsets.only(right: 4, bottom: 4),
+                child: const Icon(Icons.drag_handle, size: 16, color: Colors.white54),
               ),
             ),
           ],
@@ -177,74 +196,101 @@ class _OverlayWidgetState extends State<OverlayWidget>
     );
   }
 
-  Widget _buildList(Role? roleFilter) {
-    final filtered = roleFilter == null
-        ? _players
-        : _players.where((p) {
-            final cls = Classes.fromId(p['classId']);
-            return cls.role == roleFilter;
-          }).toList();
+  Widget _buildList(Role? roleFilter, String metricType) {
+    // Filter
+    var filtered = _players;
+    if (roleFilter != null) {
+      filtered = _players.where((p) {
+        final cls = Classes.fromId(p['classId']);
+        return cls.role == roleFilter;
+      }).toList();
+    }
 
     if (filtered.isEmpty) {
       return const Center(
-        child: Text("No data", style: TextStyle(color: Colors.white54)),
+        child: Text("No data", style: TextStyle(color: Colors.white54, fontSize: 10)),
       );
     }
 
+    // Determine keys based on metricType
+    String rateKey = 'dps';
+    String totalKey = 'total';
+    if (metricType == 'heal') {
+      rateKey = 'hps';
+      totalKey = 'totalHeal';
+    } else if (metricType == 'taken') {
+      rateKey = 'takenDps';
+      totalKey = 'totalTaken';
+    }
+
+    // Sort
+    filtered.sort((a, b) {
+      final valA = (a[rateKey] as num?)?.toDouble() ?? 0.0;
+      final valB = (b[rateKey] as num?)?.toDouble() ?? 0.0;
+      return valB.compareTo(valA);
+    });
+
+    // Calculate Max for Progress Bar
+    double maxVal = 0.0;
+    if (filtered.isNotEmpty) {
+      maxVal = (filtered.first[rateKey] as num?)?.toDouble() ?? 0.0;
+    }
+    if (maxVal == 0) maxVal = 1.0;
+
     return ListView.builder(
       itemCount: filtered.length,
+      padding: EdgeInsets.zero,
       itemBuilder: (context, index) {
         final p = filtered[index];
         final cls = Classes.fromId(p['classId']);
+        final val = (p[rateKey] as num?)?.toDouble() ?? 0.0;
+        final total = (p[totalKey] as num?)?.toInt() ?? 0;
+        final percent = (val / maxVal).clamp(0.0, 1.0);
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.white10)),
-          ),
-          child: Row(
+          height: 24, // Compact row
+          margin: const EdgeInsets.only(bottom: 1),
+          child: Stack(
             children: [
-              Container(width: 4, height: 30, color: _getClassColor(cls)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // Progress Bar Background
+              FractionallySizedBox(
+                widthFactor: percent,
+                child: Container(
+                  color: _getClassColor(cls).withOpacity(0.3),
+                ),
+              ),
+              // Content
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
                   children: [
+                    // Class Icon/Color Indicator (Small)
+                    Container(width: 2, color: _getClassColor(cls)),
+                    const SizedBox(width: 4),
+                    // Name
+                    Expanded(
+                      child: Text(
+                        "${index + 1}. ${p['name']}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 11,
+                          shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // Values
                     Text(
-                      p['name'],
+                      "${val.toStringAsFixed(0)} / ${_formatNumber(total)}",
                       style: const TextStyle(
                         color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      "${cls.name}",
-                      style: const TextStyle(
-                        color: Colors.white70,
                         fontSize: 10,
+                        shadows: [Shadow(blurRadius: 2, color: Colors.black)],
                       ),
                     ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    (p['dps'] as num).toDouble().toStringAsFixed(0),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                  Text(
-                    _formatNumber(p['total']),
-                    style: const TextStyle(color: Colors.white70, fontSize: 10),
-                  ),
-                ],
               ),
             ],
           ),
@@ -309,11 +355,23 @@ class _HomePageState extends State<HomePage> {
   StreamSubscription? _packetSubscription;
   late PacketAnalyzer _packetAnalyzer;
   Timer? _overlayUpdateTimer;
+  ReceivePort? _receivePort;
 
   @override
   void initState() {
     super.initState();
     _packetAnalyzer = PacketAnalyzer(onDamageDetected: _onDamageDetected);
+    
+    // Setup communication port
+    _receivePort = ReceivePort();
+    IsolateNameServer.removePortNameMapping('overlay_communication_port'); // Clean up old mapping if any
+    IsolateNameServer.registerPortWithName(_receivePort!.sendPort, 'overlay_communication_port');
+    _receivePort!.listen((message) {
+      if (message == "RESET") {
+        DataStorage().reset();
+      }
+    });
+
     // DataStorage().addListener(_updateOverlay);
     // Update overlay at 2 FPS (500ms) to prevent log spam and UI overload
     _overlayUpdateTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
@@ -323,6 +381,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    IsolateNameServer.removePortNameMapping('overlay_communication_port');
+    _receivePort?.close();
     // DataStorage().removeListener(_updateOverlay);
     _overlayUpdateTimer?.cancel();
     super.dispose();
@@ -344,17 +404,18 @@ class _HomePageState extends State<HomePage> {
         'classId': info?.professionId ?? 0,
         'dps': dpsData.simpleDps,
         'total': dpsData.totalAttackDamage.toInt(),
+        'hps': dpsData.simpleHps,
+        'totalHeal': dpsData.totalHeal.toInt(),
+        'takenDps': dpsData.simpleTakenDps,
+        'totalTaken': dpsData.totalTakenDamage.toInt(),
         'level': info?.level ?? 0,
       };
     }).toList();
 
-    // Sort by DPS
-    players.sort((a, b) {
-      final dpsA = (a['dps'] as num?)?.toDouble() ?? 0.0;
-      final dpsB = (b['dps'] as num?)?.toDouble() ?? 0.0;
-      return dpsB.compareTo(dpsA);
-    });
-
+    // Sort by DPS by default, but we send all data so the overlay can sort based on tab
+    // Actually, sorting logic should probably be in the overlay if it changes per tab.
+    // But here we just send the list.
+    
     FlutterOverlayWindow.shareData(players);
   }
 
