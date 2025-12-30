@@ -435,14 +435,16 @@ class _HomePageState extends State<HomePage> {
     // Overlay update is handled by DataStorage listener.
   }
 
-  void _updateOverlay() {
+  Future<void> _updateOverlay() async {
     final storage = DataStorage();
-    final players = storage.fullDpsDatas.entries.map((e) {
+    final playersFutures = storage.fullDpsDatas.entries
+    .where((e) => e.value.totalAttackDamage > Int64.ZERO || e.value.totalHeal > Int64.ZERO || e.value.totalTakenDamage > Int64.ZERO)
+    .map((e) async {
       final uid = e.key;
       final dpsData = e.value;
-      final info = storage.getPlayerInfo(uid);
+      final info = await storage.getPlayerInfo(uid);
       return {
-        'name': info?.name ?? "Unknown",
+        'name': info?.name ?? "Unknown (${uid.toString()})",
         'classId': info?.professionId ?? 0,
         'dps': dpsData.simpleDps,
         'total': dpsData.totalAttackDamage.toInt(),
@@ -452,7 +454,9 @@ class _HomePageState extends State<HomePage> {
         'totalTaken': dpsData.totalTakenDamage.toInt(),
         'level': info?.level ?? 0,
       };
-    }).toList();
+    });
+
+    final players = await Future.wait(playersFutures);
 
     // Sort by DPS by default, but we send all data so the overlay can sort based on tab
     // Actually, sorting logic should probably be in the overlay if it changes per tab.
@@ -461,15 +465,15 @@ class _HomePageState extends State<HomePage> {
     FlutterOverlayWindow.shareData(players);
   }
 
-  void _onPacketData(dynamic event) {
+  Future<void> _onPacketData(dynamic event) async {
     if (event is Uint8List) {
-      _packetAnalyzer.processPacket(event);
+      await _packetAnalyzer.processPacket(event);
     } else if (event is List<int>) {
-      _packetAnalyzer.processPacket(Uint8List.fromList(event));
+      await _packetAnalyzer.processPacket(Uint8List.fromList(event));
     } else if (event is String) {
       try {
         final bytes = _hexToBytes(event);
-        _packetAnalyzer.processPacket(bytes);
+        await _packetAnalyzer.processPacket(bytes);
       } catch (e) {
         debugPrint("Error processing packet: $e");
       }

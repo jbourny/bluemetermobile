@@ -28,7 +28,7 @@ class PacketAnalyzer {
 
   PacketAnalyzer({required this.onDamageDetected});
 
-  void processPacket(Uint8List chunk) {
+  Future<void> processPacket(Uint8List chunk) async {
     _buffer.add(chunk);
 
     while (true) {
@@ -82,11 +82,11 @@ class PacketAnalyzer {
       _buffer.add(remaining);
 
       // Process the extracted packet body
-      _parseSinglePacket(packetData, packetSize);
+      await _parseSinglePacket(packetData, packetSize);
     }
   }
 
-  void _parseSinglePacket(Uint8List packetData, int expectedSize) {
+  Future<void> _parseSinglePacket(Uint8List packetData, int expectedSize) async {
     final packetReader = ByteReader(packetData);
     if (packetReader.remaining < 4) return;
 
@@ -115,17 +115,17 @@ class PacketAnalyzer {
 
     if (msgTypeId == 2) {
       // Notify
-      _processNotifyMsg(packetReader, isZstdCompressed);
+      await _processNotifyMsg(packetReader, isZstdCompressed);
     } else if (msgTypeId == 3) {
       // Response
-      _processResponseMsg(packetReader, isZstdCompressed);
+      await _processResponseMsg(packetReader, isZstdCompressed);
     } else if (msgTypeId == 6) {
       // FrameDown
-      _processFrameDown(packetReader, isZstdCompressed);
+      await _processFrameDown(packetReader, isZstdCompressed);
     }
   }
 
-  void _processResponseMsg(ByteReader reader, bool isZstdCompressed) {
+  Future<void> _processResponseMsg(ByteReader reader, bool isZstdCompressed) async {
     // Type 3 (Return) messages only have a 4-byte StubId header
     if (reader.remaining < 4) return;
 
@@ -142,7 +142,7 @@ class PacketAnalyzer {
       final msg = SyncContainerData.fromBuffer(payload);
       if (msg.hasVData() && msg.vData.hasCharId()) {
         debugPrint("[BM] Successfully parsed SyncContainerData from Return (StubId=$stubId)");
-        _processSyncContainerData(payload);
+        await _processSyncContainerData(payload);
       } else {
          // debugPrint("[BM] Return Msg (StubId=$stubId) is not SyncContainerData");
       }
@@ -151,15 +151,15 @@ class PacketAnalyzer {
     }
   }
 
-  void _dispatchMethod(int methodId, Uint8List payload) {
+  Future<void> _dispatchMethod(int methodId, Uint8List payload) async {
     if (methodId == _methodSyncContainerData) {
-      _processSyncContainerData(payload);
+      await _processSyncContainerData(payload);
     } else if (methodId == _methodSyncNearEntities) {
-      _processSyncNearEntities(payload);
+      await _processSyncNearEntities(payload);
     }
   }
 
-  void _processNotifyMsg(ByteReader reader, bool isZstdCompressed) {
+  Future<void> _processNotifyMsg(ByteReader reader, bool isZstdCompressed) async {
     if (reader.remaining < 16) return;
 
     final serviceUuid = reader.readUInt64BE();
@@ -180,19 +180,19 @@ class PacketAnalyzer {
     debugPrint("[BM] Notify Method: $methodId");
 
     if (methodId == _methodSyncToMeDeltaInfo) {
-      _processSyncToMeDeltaInfo(payload);
+      await _processSyncToMeDeltaInfo(payload);
     } else if (methodId == _methodSyncNearDeltaInfo) {
-      _processSyncNearDeltaInfo(payload);
+      await _processSyncNearDeltaInfo(payload);
     } else if (methodId == _methodSyncNearEntities) {
-      _processSyncNearEntities(payload);
+      await _processSyncNearEntities(payload);
     } else if (methodId == _methodSyncContainerData) {
-      _processSyncContainerData(payload);
+      await _processSyncContainerData(payload);
     } else if (methodId == _methodSyncContainerDirtyData) {
-      _processSyncContainerDirtyData(payload);
+      await _processSyncContainerDirtyData(payload);
     }
   }
 
-  void _processFrameDown(ByteReader reader, bool isZstdCompressed) {
+  Future<void> _processFrameDown(ByteReader reader, bool isZstdCompressed) async {
     if (reader.remaining < 4) return;
     reader.readUInt32BE(); // serverSequenceId
     if (reader.remaining == 0) return;
@@ -202,10 +202,10 @@ class PacketAnalyzer {
       nestedPacket = _decompressZstdIfNeeded(nestedPacket);
     }
 
-    _parsePacketSequence(nestedPacket);
+    await _parsePacketSequence(nestedPacket);
   }
 
-  void _parsePacketSequence(Uint8List data) {
+  Future<void> _parsePacketSequence(Uint8List data) async {
     final reader = ByteReader(data);
     while (reader.remaining > 0) {
       if (reader.remaining < 4) break;
@@ -214,7 +214,7 @@ class PacketAnalyzer {
       if (packetSize < 6 || packetSize > reader.remaining) break;
 
       final packetData = reader.readBytes(packetSize);
-      _parseSinglePacket(packetData, packetSize);
+      await _parseSinglePacket(packetData, packetSize);
     }
   }
 
@@ -233,7 +233,7 @@ class PacketAnalyzer {
     }
   }
 
-  void _processSyncContainerData(Uint8List payload) {
+  Future<void> _processSyncContainerData(Uint8List payload) async {
     debugPrint("[BM] Processing SyncContainerData (Len: ${payload.length})");
     try {
       // We need SyncContainerData definition in protocol
@@ -251,7 +251,7 @@ class PacketAnalyzer {
         final storageUid = playerUid >> 16;
 
         PlayerInfo info =
-            storage.getPlayerInfo(storageUid) ?? PlayerInfo(uid: storageUid);
+            (await storage.getPlayerInfo(storageUid)) ?? PlayerInfo(uid: storageUid);
         bool changed = false;
 
         if (msg.vData.hasCharBase()) {
@@ -295,7 +295,7 @@ class PacketAnalyzer {
     return true;
   }
 
-  void _processSyncContainerDirtyData(Uint8List payload) {
+  Future<void> _processSyncContainerDirtyData(Uint8List payload) async {
     debugPrint("[BM] Processing SyncContainerDirtyData (Len: ${payload.length})");
     try {
       final msg = SyncContainerDirtyData.fromBuffer(payload);
@@ -344,7 +344,7 @@ class PacketAnalyzer {
                 // In Dart, Int64 shift right is >>
                 final storageUid = playerUid >> 16;
                 
-                final info = storage.getPlayerInfo(storageUid) ?? PlayerInfo(uid: storageUid);
+                final info = (await storage.getPlayerInfo(storageUid)) ?? PlayerInfo(uid: storageUid);
                 info.name = name;
                 storage.updatePlayerInfo(info);
                 debugPrint("[BM] Updated MY player name from DirtyData: $name (UID: $storageUid)");
@@ -353,7 +353,7 @@ class PacketAnalyzer {
              // Combat Power
              final cp = reader.readInt32LE();
              final storageUid = playerUid >> 16;
-             final info = storage.getPlayerInfo(storageUid) ?? PlayerInfo(uid: storageUid);
+             final info = (await storage.getPlayerInfo(storageUid)) ?? PlayerInfo(uid: storageUid);
              info.combatPower = cp;
              storage.updatePlayerInfo(info);
              debugPrint("[BM] Updated MY CP from DirtyData: $cp");
@@ -367,19 +367,19 @@ class PacketAnalyzer {
     }
   }
 
-  void _processSyncNearEntities(Uint8List payload) {
+  Future<void> _processSyncNearEntities(Uint8List payload) async {
     try {
       final msg = SyncNearEntities.fromBuffer(payload);
       debugPrint("[BM] SyncNearEntities: ${msg.appear.length} entities");
       for (final entity in msg.appear) {
-        // debugPrint("[BM] Entity Type: ${entity.entType.value} UUID: ${entity.uuid}");
+        debugPrint("[BM] Entity Type: ${entity.entType.value} UUID: ${entity.uuid}");
         if (entity.entType != EEntityType.EntChar) continue;
 
         final playerUid = entity.uuid >> 16; // ShiftRight16
         if (playerUid == Int64.ZERO) continue;
 
         if (entity.hasAttrs()) {
-          _processPlayerAttrs(playerUid, entity.attrs.attrs);
+          await _processPlayerAttrs(playerUid, entity.attrs.attrs);
         } else {
            debugPrint("[BM] Entity $playerUid has no attrs");
         }
@@ -405,10 +405,10 @@ class PacketAnalyzer {
     }
   }
 
-  void _processPlayerAttrs(Int64 playerUid, List<Attr> attrs) {
+  Future<void> _processPlayerAttrs(Int64 playerUid, List<Attr> attrs) async {
     final storage = DataStorage();
     PlayerInfo info =
-        storage.getPlayerInfo(playerUid) ?? PlayerInfo(uid: playerUid);
+        (await storage.getPlayerInfo(playerUid)) ?? PlayerInfo(uid: playerUid);
 
     bool changed = false;
     
@@ -534,7 +534,7 @@ class PacketAnalyzer {
     }
   }
 
-  void _processSyncToMeDeltaInfo(Uint8List payload) {
+  Future<void> _processSyncToMeDeltaInfo(Uint8List payload) async {
     try {
       final msg = SyncToMeDeltaInfo.fromBuffer(payload);
 
@@ -546,25 +546,25 @@ class PacketAnalyzer {
           storage.currentPlayerUuid = uuid;
           debugPrint("[BM] Updated CurrentPlayerUUID from SyncToMeDeltaInfo: $uuid");
         }
-        _processAoiSyncDelta(msg.deltaInfo.baseDelta);
+        await _processAoiSyncDelta(msg.deltaInfo.baseDelta);
       }
     } catch (e) {
       debugPrint("Error parsing SyncToMeDeltaInfo: $e");
     }
   }
 
-  void _processSyncNearDeltaInfo(Uint8List payload) {
+  Future<void> _processSyncNearDeltaInfo(Uint8List payload) async {
     try {
       final msg = SyncNearDeltaInfo.fromBuffer(payload);
       for (final delta in msg.deltaInfos) {
-        _processAoiSyncDelta(delta);
+        await _processAoiSyncDelta(delta);
       }
     } catch (e) {
       debugPrint("Error parsing SyncNearDeltaInfo: $e");
     }
   }
 
-  void _processAoiSyncDelta(AoiSyncDelta delta) {
+  Future<void> _processAoiSyncDelta(AoiSyncDelta delta) async {
     if (delta.hasUuid()) {
       // Check for attributes update in delta
       final targetUuidRaw = delta.uuid;
@@ -576,7 +576,7 @@ class PacketAnalyzer {
         // C# IsUuidPlayerRaw: (uuid & 0xFFFF) == 640
         // But logs show UUID ending in 0x640 (1600), so we accept both.
         if (targetSuffix == 640 || targetSuffix == 1600) {
-          _processPlayerAttrs(targetUuid, delta.attrs.attrs);
+          await _processPlayerAttrs(targetUuid, delta.attrs.attrs);
         }
       }
     

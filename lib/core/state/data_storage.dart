@@ -3,12 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/player_info.dart';
 import '../models/dps_data.dart';
+import '../services/database_service.dart';
 
 class DataStorage extends ChangeNotifier {
   static final DataStorage _instance = DataStorage._internal();
   factory DataStorage() => _instance;
   DataStorage._internal() {
-    _loadPersistedData();
+    // _loadPersistedData();
   }
 
   Int64 _currentPlayerUuid = Int64.ZERO;
@@ -17,7 +18,7 @@ class DataStorage extends ChangeNotifier {
   set currentPlayerUuid(Int64 value) {
     if (_currentPlayerUuid != value) {
       _currentPlayerUuid = value;
-      _persistCurrentPlayerUuid(value);
+      // _persistCurrentPlayerUuid(value);
       notifyListeners();
     }
   }
@@ -52,11 +53,37 @@ class DataStorage extends ChangeNotifier {
 
   void updatePlayerInfo(PlayerInfo info) {
     _playerInfoDatas[info.uid] = info;
+    _notFoundUids.remove(info.uid);
+    DatabaseService().savePlayer(info);
     notifyListeners();
   }
   
-  PlayerInfo? getPlayerInfo(Int64 uid) {
-    return _playerInfoDatas[uid];
+  final Set<Int64> _notFoundUids = {};
+
+  Future<PlayerInfo?> getPlayerInfo(Int64 uid) async {
+    if (_playerInfoDatas.containsKey(uid)) {
+      return _playerInfoDatas[uid];
+    }
+    if (_notFoundUids.contains(uid)) {
+      return null;
+    }
+    return await _fetchPlayerFromDb(uid);
+  }
+
+  Future<PlayerInfo?> _fetchPlayerFromDb(Int64 uid) async {
+    try {
+      final player = await DatabaseService().getPlayer(uid);
+      if (player != null) {
+        _playerInfoDatas[uid] = player;
+        notifyListeners();
+        return player;
+      } else {
+        _notFoundUids.add(uid);
+      }
+    } catch (e) {
+      debugPrint("[BM] Error fetching player from DB: $e");
+    }
+    return null;
   }
 
   DpsData getOrCreateDpsData(Int64 uid) {
