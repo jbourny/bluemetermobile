@@ -112,11 +112,15 @@ class _OverlayWidgetState extends State<OverlayWidget>
                         controller: _tabController,
                         labelPadding: EdgeInsets.zero,
                         indicatorSize: TabBarIndicatorSize.label,
+                        indicatorColor: Colors.transparent,
+                        dividerColor: Colors.transparent,
+                        labelColor: Colors.blue,
+                        unselectedLabelColor: Colors.white54,
                         tabs: const [
-                          Tab(text: "All"),
-                          Tab(text: "DPS"),
-                          Tab(text: "T"),
-                          Tab(text: "H"),
+                          Tab(child: Icon(Icons.star, size: 16)),
+                          Tab(child: Icon(Icons.flash_on, size: 16)), // DPS (Sword replacement)
+                          Tab(child: Icon(Icons.shield, size: 16)),
+                          Tab(child: Icon(Icons.local_hospital, size: 16)),
                         ],
                       ),
                     ),
@@ -282,7 +286,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
                     ),
                     // Values
                     Text(
-                      "${val.toStringAsFixed(0)} / ${_formatNumber(total)}",
+                      "${_formatNumber(val)} / ${_formatNumber(total)}",
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 10,
@@ -312,10 +316,18 @@ class _OverlayWidgetState extends State<OverlayWidget>
     }
   }
 
-  String _formatNumber(int num) {
-    if (num >= 1000000) return "${(num / 1000000).toStringAsFixed(1)}M";
-    if (num >= 1000) return "${(num / 1000).toStringAsFixed(1)}K";
-    return num.toString();
+  String _formatNumber(num number) {
+    if (number >= 1000000) {
+      double val = number / 1000000;
+      String s = val < 100 ? val.toStringAsFixed(2) : val.toStringAsFixed(1);
+      return "${s}m";
+    }
+    if (number >= 1000) {
+      double val = number / 1000;
+      String s = val < 100 ? val.toStringAsFixed(2) : val.toStringAsFixed(1);
+      return "${s}k";
+    }
+    return number.toStringAsFixed(0);
   }
 }
 
