@@ -45,6 +45,15 @@ class _OverlayWidgetState extends State<OverlayWidget>
   // Track window position
   double _windowX = 0;
   double _windowY = 0;
+  
+  // Drag helpers
+  double _lastMoveX = 0;
+  double _lastMoveY = 0;
+  double _windowDeltaX = 0;
+  double _windowDeltaY = 0;
+  Size? _resizeStartWindowSize;
+  Offset? _dragStartTouchPosition; // Keep for resize
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -77,28 +86,40 @@ class _OverlayWidgetState extends State<OverlayWidget>
         ),
         child: Column(
           children: [
-            // Title Bar / Drag Area
+            // Title Bar
             GestureDetector(
               onPanStart: (details) async {
+                _isDragging = false;
                 try {
                   final pos = await FlutterOverlayWindow.getOverlayPosition();
                   if (pos != null) {
-                    setState(() {
-                      _windowX = pos.x.toDouble();
-                      _windowY = pos.y.toDouble();
-                    });
+                    // Convert physical position (from native) to logical pixels (for Flutter)
+                    final dpr = MediaQuery.of(context).devicePixelRatio;
+                    _windowX = pos.x;
+                    _windowY = pos.y;
+                    _lastMoveX=details.globalPosition.dx;
+                    _lastMoveY=details.globalPosition.dy;
+                    _windowDeltaX=0;
+                    _windowDeltaY=0;
+                    _isDragging = true;
                   }
                 } catch (e) {
                   debugPrint("Error getting overlay position: $e");
                 }
               },
-              onPanUpdate: (details) async {
-                setState(() {
-                  _windowX += details.delta.dx;
-                  _windowY += details.delta.dy;
-                });
-                await FlutterOverlayWindow.moveOverlay(
-                  OverlayPosition(_windowX, _windowY),
+              onPanUpdate: (details) {
+                if (!_isDragging) return;
+                  final dpr = MediaQuery.of(context).devicePixelRatio;
+                  // Arrondir les deltas pour éviter l'accumulation d'erreurs de flottement
+                _windowDeltaX= details.globalPosition.dx-_lastMoveX;
+                _windowDeltaY= details.globalPosition.dy - _lastMoveY;
+                
+                // Simple delta update.
+                // With alignment: OverlayAlignment.topLeft, this should be stable.
+                debugPrint("[BM Overlay] dpr:${dpr} Moving overlay to (${_windowX + _windowDeltaX} [+${details.delta.dx}], ${_windowY + _windowDeltaY} [+${details.delta.dy}])");
+                
+                FlutterOverlayWindow.moveOverlay(
+                  OverlayPosition(_windowX+_windowDeltaX/dpr, _windowY+_windowDeltaY/dpr),
                 );
               },
               child: Container(
@@ -168,21 +189,30 @@ class _OverlayWidgetState extends State<OverlayWidget>
             ),
             // Resize Handle
             GestureDetector(
-              onPanUpdate: (details) {
-                setState(() {
-                  _windowWidth += details.delta.dx;
-                  _windowHeight += details.delta.dy;
-
-                  // Min size constraints
-                  if (_windowWidth < 150) _windowWidth = 150;
-                  if (_windowHeight < 100) _windowHeight = 100;
-                });
+              onPanStart: (details) {
+                // Use logical size directly
+                final size = MediaQuery.of(context).size;
+                _resizeStartWindowSize = size;
+                _dragStartTouchPosition = details.globalPosition;
               },
-              onPanEnd: (details) async {
-                await FlutterOverlayWindow.resizeOverlay(
-                  _windowWidth.toInt(),
-                  _windowHeight.toInt(),
-                  false, // Do not center, keep position
+              onPanUpdate: (details) {
+                if (_resizeStartWindowSize == null || _dragStartTouchPosition == null) return;
+
+                final currentTouch = details.globalPosition;
+                final diff = currentTouch - _dragStartTouchPosition!;
+                
+                // Calculate new size in logical pixels
+                double newWidth = _resizeStartWindowSize!.width + diff.dx;
+                double newHeight = _resizeStartWindowSize!.height + diff.dy;
+
+                // Min size constraints (logical)
+                if (newWidth < 150) newWidth = 150;
+                if (newHeight < 100) newHeight = 100;
+
+                FlutterOverlayWindow.resizeOverlay(
+                  newWidth.toInt(),
+                  newHeight.toInt(),
+                  false,
                 );
               },
               child: Container(
@@ -471,15 +501,21 @@ class _HomePageState extends State<HomePage> {
     if (await FlutterOverlayWindow.isActive()) return;
 
     await FlutterOverlayWindow.showOverlay(
-      enableDrag: false, // Disable default drag to allow custom move/scroll
+      enableDrag: false, // Disable native drag to allow content interaction
       overlayTitle: "BlueMeter DPS",
       overlayContent: "DPS Meter Active",
       flag: OverlayFlag.defaultFlag,
-      alignment: OverlayAlignment.centerLeft,
+      alignment: OverlayAlignment.topLeft,
       visibility: NotificationVisibility.visibilityPublic,
-      positionGravity: PositionGravity.auto,
-      height: 600,
-      width: 400,
+      positionGravity: PositionGravity.none,
+      height: 400,
+      width: 600,
+    );
+    
+    // Move to a safe initial position (logical pixels)
+    await Future.delayed(const Duration(milliseconds: 100));
+    await FlutterOverlayWindow.moveOverlay(
+      const OverlayPosition(0, 100),
     );
   }
 
