@@ -1,14 +1,48 @@
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/player_info.dart';
 import '../models/dps_data.dart';
 
 class DataStorage extends ChangeNotifier {
   static final DataStorage _instance = DataStorage._internal();
   factory DataStorage() => _instance;
-  DataStorage._internal();
+  DataStorage._internal() {
+    _loadPersistedData();
+  }
 
-  Int64 currentPlayerUuid = Int64.ZERO;
+  Int64 _currentPlayerUuid = Int64.ZERO;
+  Int64 get currentPlayerUuid => _currentPlayerUuid;
+  
+  set currentPlayerUuid(Int64 value) {
+    if (_currentPlayerUuid != value) {
+      _currentPlayerUuid = value;
+      _persistCurrentPlayerUuid(value);
+      notifyListeners();
+    }
+  }
+
+  Future<void> _loadPersistedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedUuidStr = prefs.getString('current_player_uuid');
+      if (storedUuidStr != null) {
+        _currentPlayerUuid = Int64.parseInt(storedUuidStr);
+        debugPrint("[BM] Loaded persisted CurrentPlayerUUID: $_currentPlayerUuid");
+      }
+    } catch (e) {
+      debugPrint("[BM] Error loading persisted data: $e");
+    }
+  }
+
+  Future<void> _persistCurrentPlayerUuid(Int64 uuid) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('current_player_uuid', uuid.toString());
+    } catch (e) {
+      debugPrint("[BM] Error persisting CurrentPlayerUUID: $e");
+    }
+  }
   
   final Map<Int64, PlayerInfo> _playerInfoDatas = {};
   final Map<Int64, DpsData> _fullDpsDatas = {};

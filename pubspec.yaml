@@ -38,6 +38,7 @@ dependencies:
   provider: ^6.1.2
   permission_handler: ^11.3.0
   zstd: ^0.0.1-dev.2
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:

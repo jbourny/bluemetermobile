@@ -592,3 +592,59 @@ class SyncContainerData extends GeneratedMessage {
   bool hasVData() => $_has(0);
   void clearVData() => clearField(1);
 }
+
+class BufferStream extends GeneratedMessage {
+  static final BuilderInfo _i = BuilderInfo('BufferStream', package: const PackageName('BlueProto'), createEmptyInstance: create)
+    ..a<List<int>>(1, 'bufferS', PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  BufferStream() : super();
+  BufferStream.fromBuffer(List<int> i, [ExtensionRegistry r = ExtensionRegistry.EMPTY]) : super() {
+    mergeFromBuffer(i, r);
+  }
+  
+  @override
+  BufferStream clone() => BufferStream()..mergeFromMessage(this);
+  @override
+  BufferStream createEmptyInstance() => create();
+  @override
+  BuilderInfo get info_ => _i;
+
+  static BufferStream create() => BufferStream();
+  static PbList<BufferStream> createRepeated() => PbList<BufferStream>();
+  static BufferStream getDefault() => _defaultInstance ??= create()..freeze();
+  static BufferStream? _defaultInstance;
+
+  List<int> get bufferS => $_getN(0);
+  set bufferS(List<int> v) { $_setBytes(0, v); }
+  bool hasBufferS() => $_has(0);
+  void clearBufferS() => clearField(1);
+}
+
+class SyncContainerDirtyData extends GeneratedMessage {
+  static final BuilderInfo _i = BuilderInfo('SyncContainerDirtyData', package: const PackageName('BlueProto'), createEmptyInstance: create)
+    ..aOM<BufferStream>(1, 'vData', subBuilder: BufferStream.create)
+    ..hasRequiredFields = false;
+
+  SyncContainerDirtyData() : super();
+  SyncContainerDirtyData.fromBuffer(List<int> i, [ExtensionRegistry r = ExtensionRegistry.EMPTY]) : super() {
+    mergeFromBuffer(i, r);
+  }
+  
+  @override
+  SyncContainerDirtyData clone() => SyncContainerDirtyData()..mergeFromMessage(this);
+  @override
+  SyncContainerDirtyData createEmptyInstance() => create();
+  @override
+  BuilderInfo get info_ => _i;
+
+  static SyncContainerDirtyData create() => SyncContainerDirtyData();
+  static PbList<SyncContainerDirtyData> createRepeated() => PbList<SyncContainerDirtyData>();
+  static SyncContainerDirtyData getDefault() => _defaultInstance ??= create()..freeze();
+  static SyncContainerDirtyData? _defaultInstance;
+
+  BufferStream get vData => $_getN(0);
+  set vData(BufferStream v) { setField(1, v); }
+  bool hasVData() => $_has(0);
+  void clearVData() => clearField(1);
+}

@@ -18,6 +18,7 @@ class PacketAnalyzer {
   // Method IDs
   static const int _methodSyncNearEntities = 0x00000006;
   static const int _methodSyncContainerData = 0x00000015;
+  static const int _methodSyncContainerDirtyData = 0x00000016;
   static const int _methodSyncToMeDeltaInfo = 0x0000002E;
   static const int _methodSyncNearDeltaInfo = 0x0000002D;
   static const int _serviceUuid = 0x63335342; // 0x0000000063335342
@@ -105,16 +106,56 @@ class PacketAnalyzer {
     final isZstdCompressed = (packetType & 0x8000) != 0;
     final msgTypeId = packetType & 0x7FFF;
 
-    debugPrint(
-      "Parsed packet: Type=$msgTypeId, Compressed=$isZstdCompressed, Size=$expectedSize",
-    );
+    // debugPrint(
+    //   "Parsed packet: Type=$msgTypeId, Compressed=$isZstdCompressed, Size=$expectedSize",
+    // );
+    if (msgTypeId == 2 || msgTypeId == 3) {
+       debugPrint("[BM] Packet: Type=$msgTypeId Size=$expectedSize");
+    }
 
     if (msgTypeId == 2) {
       // Notify
       _processNotifyMsg(packetReader, isZstdCompressed);
+    } else if (msgTypeId == 3) {
+      // Response
+      _processResponseMsg(packetReader, isZstdCompressed);
     } else if (msgTypeId == 6) {
       // FrameDown
       _processFrameDown(packetReader, isZstdCompressed);
+    }
+  }
+
+  void _processResponseMsg(ByteReader reader, bool isZstdCompressed) {
+    // Type 3 (Return) messages only have a 4-byte StubId header
+    if (reader.remaining < 4) return;
+
+    final stubId = reader.readUInt32BE();
+    debugPrint("[BM] Return Msg: StubId=$stubId Size=${reader.remaining}");
+
+    Uint8List payload = reader.readRemaining();
+    if (isZstdCompressed) {
+      payload = _decompressZstdIfNeeded(payload);
+    }
+
+    // Attempt to parse as SyncContainerData (blindly, since we don't track StubId)
+    try {
+      final msg = SyncContainerData.fromBuffer(payload);
+      if (msg.hasVData() && msg.vData.hasCharId()) {
+        debugPrint("[BM] Successfully parsed SyncContainerData from Return (StubId=$stubId)");
+        _processSyncContainerData(payload);
+      } else {
+         // debugPrint("[BM] Return Msg (StubId=$stubId) is not SyncContainerData");
+      }
+    } catch (e) {
+      // debugPrint("[BM] Failed to parse Return Msg as SyncContainerData: $e");
+    }
+  }
+
+  void _dispatchMethod(int methodId, Uint8List payload) {
+    if (methodId == _methodSyncContainerData) {
+      _processSyncContainerData(payload);
+    } else if (methodId == _methodSyncNearEntities) {
+      _processSyncNearEntities(payload);
     }
   }
 
@@ -135,7 +176,8 @@ class PacketAnalyzer {
       payload = _decompressZstdIfNeeded(payload);
     }
 
-    debugPrint("Notify Method: $methodId");
+    // debugPrint("Notify Method: $methodId");
+    debugPrint("[BM] Notify Method: $methodId");
 
     if (methodId == _methodSyncToMeDeltaInfo) {
       _processSyncToMeDeltaInfo(payload);
@@ -145,6 +187,8 @@ class PacketAnalyzer {
       _processSyncNearEntities(payload);
     } else if (methodId == _methodSyncContainerData) {
       _processSyncContainerData(payload);
+    } else if (methodId == _methodSyncContainerDirtyData) {
+      _processSyncContainerDirtyData(payload);
     }
   }
 
@@ -190,6 +234,7 @@ class PacketAnalyzer {
   }
 
   void _processSyncContainerData(Uint8List payload) {
+    debugPrint("[BM] Processing SyncContainerData (Len: ${payload.length})");
     try {
       // We need SyncContainerData definition in protocol
       // But for now let's try to parse what we can or add it to protocol
@@ -201,9 +246,12 @@ class PacketAnalyzer {
 
         // Update current player UUID
         storage.currentPlayerUuid = playerUid;
+        
+        // Shift right 16 for storage key
+        final storageUid = playerUid >> 16;
 
         PlayerInfo info =
-            storage.getPlayerInfo(playerUid) ?? PlayerInfo(uid: playerUid);
+            storage.getPlayerInfo(storageUid) ?? PlayerInfo(uid: storageUid);
         bool changed = false;
 
         if (msg.vData.hasCharBase()) {
@@ -225,18 +273,106 @@ class PacketAnalyzer {
 
         if (changed) {
           storage.updatePlayerInfo(info);
-          debugPrint("Updated MY player info: $info");
+          debugPrint("[BM] Updated MY player info: $info");
         }
       }
     } catch (e) {
-      debugPrint("Error parsing SyncContainerData: $e");
+      debugPrint("[BM] Error parsing SyncContainerData: $e");
+    }
+  }
+
+  bool _doesStreamHaveIdentifier(ByteReader reader) {
+    if (reader.remaining < 8) return false;
+    final id1 = reader.readUInt32LE();
+    reader.readInt32LE(); // guard
+
+    if (id1 != 0xFFFFFFFE) return false;
+
+    if (reader.remaining < 8) return false;
+    reader.readInt32LE(); // 0xFFFFFFFD
+    reader.readInt32LE(); // guard
+
+    return true;
+  }
+
+  void _processSyncContainerDirtyData(Uint8List payload) {
+    debugPrint("[BM] Processing SyncContainerDirtyData (Len: ${payload.length})");
+    try {
+      final msg = SyncContainerDirtyData.fromBuffer(payload);
+      if (msg.hasVData() && msg.vData.bufferS.isNotEmpty) {
+        final buffer = Uint8List.fromList(msg.vData.bufferS);
+        final reader = ByteReader(buffer);
+
+        if (!_doesStreamHaveIdentifier(reader)) {
+          debugPrint("[BM] DirtyData stream missing identifier");
+          return;
+        }
+
+        final fieldIndex = reader.readUInt32LE();
+        reader.readInt32LE(); // Skip
+        
+        debugPrint("[BM] DirtyData FieldIndex: $fieldIndex");
+
+        final storage = DataStorage();
+        var playerUid = storage.currentPlayerUuid;
+        
+        if (playerUid == Int64.ZERO) {
+           debugPrint("[BM] Warning: Received SyncContainerDirtyData but CurrentPlayerUUID is 0. Ignoring.");
+           // Try to use the persisted UUID if available (it might be loaded async, but let's check)
+           // Actually DataStorage loads it in constructor, but it's async.
+           // If it's still 0, we can't do much.
+           // return; // Don't return, let's see if we can parse it anyway for debugging
+        }
+
+        if (fieldIndex == 2) {
+           if (!_doesStreamHaveIdentifier(reader)) {
+             debugPrint("[BM] DirtyData inner stream missing identifier");
+             return;
+           }
+           
+           final innerFieldIndex = reader.readUInt32LE();
+           reader.readInt32LE(); // Skip
+           
+           debugPrint("[BM] DirtyData InnerFieldIndex: $innerFieldIndex");
+
+           if (innerFieldIndex == 5) {
+             // Name
+             final name = reader.readString();
+             if (name.isNotEmpty) {
+                // Shift right 16 to get the actual UID key for storage
+                // The C# code does: var playerUid = DataStorage.CurrentPlayerUUID.ShiftRight16();
+                // In Dart, Int64 shift right is >>
+                final storageUid = playerUid >> 16;
+                
+                final info = storage.getPlayerInfo(storageUid) ?? PlayerInfo(uid: storageUid);
+                info.name = name;
+                storage.updatePlayerInfo(info);
+                debugPrint("[BM] Updated MY player name from DirtyData: $name (UID: $storageUid)");
+             }
+           } else if (innerFieldIndex == 35) {
+             // Combat Power
+             final cp = reader.readInt32LE();
+             final storageUid = playerUid >> 16;
+             final info = storage.getPlayerInfo(storageUid) ?? PlayerInfo(uid: storageUid);
+             info.combatPower = cp;
+             storage.updatePlayerInfo(info);
+             debugPrint("[BM] Updated MY CP from DirtyData: $cp");
+           }
+        } else {
+           debugPrint("[BM] DirtyData FieldIndex $fieldIndex ignored (Not 2)");
+        }
+      }
+    } catch (e) {
+      debugPrint("[BM] Error parsing SyncContainerDirtyData: $e");
     }
   }
 
   void _processSyncNearEntities(Uint8List payload) {
     try {
       final msg = SyncNearEntities.fromBuffer(payload);
+      debugPrint("[BM] SyncNearEntities: ${msg.appear.length} entities");
       for (final entity in msg.appear) {
+        // debugPrint("[BM] Entity Type: ${entity.entType.value} UUID: ${entity.uuid}");
         if (entity.entType != EEntityType.EntChar) continue;
 
         final playerUid = entity.uuid >> 16; // ShiftRight16
@@ -244,10 +380,12 @@ class PacketAnalyzer {
 
         if (entity.hasAttrs()) {
           _processPlayerAttrs(playerUid, entity.attrs.attrs);
+        } else {
+           debugPrint("[BM] Entity $playerUid has no attrs");
         }
       }
     } catch (e) {
-      debugPrint("Error parsing SyncNearEntities: $e");
+      debugPrint("[BM] Error parsing SyncNearEntities: $e");
     }
   }
 
@@ -281,6 +419,19 @@ class PacketAnalyzer {
     for (final attr in attrs) {
       if (!attr.hasId() || !attr.hasRawData()) continue;
 
+      // Dump raw data for ALL attributes to find the name
+      final hex = attr.rawData.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
+      if (attr.rawData.length > 0) {
+         // Try to decode as string to see if it looks like text
+         String asText = "";
+         try {
+           asText = utf8.decode(attr.rawData, allowMalformed: true);
+           // Remove control chars for display
+           asText = asText.replaceAll(RegExp(r'[\x00-\x1F]'), '.');
+         } catch (_) {}
+         debugPrint("[BM] Attr ID=${attr.id} Len=${attr.rawData.length} Hex=$hex Text=$asText");
+      }
+
       final reader = CodedBufferReader(attr.rawData);
       final attrType = AttrType.fromValue(attr.id);
 
@@ -290,68 +441,84 @@ class PacketAnalyzer {
         continue;
       }
 
+      // Explicitly log when we find AttrName (ID 1)
+      if (attrType == AttrType.AttrName) {
+         debugPrint("[BM] Found AttrName (ID 1). RawData Len: ${attr.rawData.length}");
+      }
+
       try {
         switch (attrType) {
           case AttrType.AttrName:
-            String? parsedName;
-            
             // Debug raw bytes
-            final hex = attr.rawData.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
-            debugPrint("Attr Name ID=${attr.id} Raw: $hex");
+            // final hex = attr.rawData.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
+            // debugPrint("[BM] Attr Name ID=${attr.id} Raw: $hex");
 
-            // 1. Try Custom String Format
-            parsedName = _tryParseCustomString(Uint8List.fromList(attr.rawData));
+            String? parsedName;
 
-            // 2. Try Protobuf String
-            if (parsedName == null) {
-              try {
-                parsedName = reader.readString();
-              } catch (_) {}
+            // 1. Try Protobuf String (Varint Length + Bytes)
+            try {
+              final r = CodedBufferReader(attr.rawData);
+              parsedName = r.readString();
+            } catch (e) {
+               debugPrint("[BM] Failed to readString for Name: $e");
             }
 
-            // 3. Try Raw UTF-8
-            if (parsedName == null) {
+            // 2. Try Custom String Format (4-byte length prefix)
+            if (parsedName == null || parsedName.isEmpty) {
+               parsedName = _tryParseCustomString(Uint8List.fromList(attr.rawData));
+            }
+
+            // 3. Try Raw UTF-8 (fallback)
+            if (parsedName == null || parsedName.isEmpty) {
               try {
                 parsedName = utf8.decode(attr.rawData);
               } catch (_) {}
             }
 
             if (parsedName != null && parsedName.isNotEmpty) {
+              // Filter out control characters if it looks like garbage
+              // But allow some if it's just a prefix we missed
+              // The logs showed names starting with . (06) which is length.
+              // readString() consumes the length.
+              
               info.name = parsedName;
-              debugPrint("Parsed Name for $playerUid: $parsedName");
+              debugPrint("[BM] Parsed Name for $playerUid: $parsedName");
               changed = true;
+            } else {
+               debugPrint("[BM] Name parsing failed for ID 1. Raw: $hex");
             }
             break;
           case AttrType.AttrProfessionId:
-            info.professionId = reader.readInt32();
+            // Create new reader for each field to avoid position issues
+            info.professionId = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
           case AttrType.AttrFightPoint:
-            info.combatPower = reader.readInt32();
+            info.combatPower = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
           case AttrType.AttrLevel:
-            info.level = reader.readInt32();
+            info.level = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
           case AttrType.AttrRankLevel:
-            info.rankLevel = reader.readInt32();
+            info.rankLevel = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
           case AttrType.AttrCri:
-            info.critical = reader.readInt32();
+            info.critical = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
           case AttrType.AttrLucky:
-            info.lucky = reader.readInt32();
+            info.lucky = CodedBufferReader(attr.rawData).readInt32();
             changed = true;
             break;
           case AttrType.AttrHp:
-            info.hp = Int64(reader.readInt32());
+            info.hp = Int64(CodedBufferReader(attr.rawData).readInt32());
             changed = true;
             break;
           case AttrType.AttrMaxHp:
-            info.maxHp = Int64(reader.readInt32());
+            info.maxHp = Int64(CodedBufferReader(attr.rawData).readInt32());
             changed = true;
             break;
           default:
@@ -370,7 +537,15 @@ class PacketAnalyzer {
   void _processSyncToMeDeltaInfo(Uint8List payload) {
     try {
       final msg = SyncToMeDeltaInfo.fromBuffer(payload);
+
+      // Update CurrentPlayerUUID if available
       if (msg.hasDeltaInfo() && msg.deltaInfo.hasBaseDelta()) {
+        final uuid = msg.deltaInfo.baseDelta.uuid;
+        final storage = DataStorage();
+        if (uuid != Int64.ZERO && storage.currentPlayerUuid != uuid) {
+          storage.currentPlayerUuid = uuid;
+          debugPrint("[BM] Updated CurrentPlayerUUID from SyncToMeDeltaInfo: $uuid");
+        }
         _processAoiSyncDelta(msg.deltaInfo.baseDelta);
       }
     } catch (e) {
@@ -396,7 +571,9 @@ class PacketAnalyzer {
         final targetUuidRaw = delta.uuid;
         // Check if target is player (IsUuidPlayerRaw logic from C#)
         // C# IsUuidPlayerRaw: (uuid & 0xFFFF) == 640
-        if ((targetUuidRaw.toInt() & 0xFFFF) == 640) {
+        // But logs show UUID ending in 0x640 (1600), so we accept both.
+        final suffix = targetUuidRaw.toInt() & 0xFFFF;
+        if (suffix == 640 || suffix == 1600) {
           final targetUuid = targetUuidRaw >> 16;
           _processPlayerAttrs(targetUuid, delta.attrs.attrs);
         }
@@ -451,6 +628,12 @@ class ByteReader {
 
   int readUInt32BE() {
     final val = _view.getUint32(_offset, Endian.big);
+    _offset += 4;
+    return val;
+  }
+
+  int readUInt32LE() {
+    final val = _view.getUint32(_offset, Endian.little);
     _offset += 4;
     return val;
   }

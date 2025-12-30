@@ -233,7 +233,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    "${(p['dps'] as double).toStringAsFixed(0)}",
+                    (p['dps'] as num).toDouble().toStringAsFixed(0),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -308,17 +308,23 @@ class _HomePageState extends State<HomePage> {
   bool _isVpnRunning = false;
   StreamSubscription? _packetSubscription;
   late PacketAnalyzer _packetAnalyzer;
+  Timer? _overlayUpdateTimer;
 
   @override
   void initState() {
     super.initState();
     _packetAnalyzer = PacketAnalyzer(onDamageDetected: _onDamageDetected);
-    DataStorage().addListener(_updateOverlay);
+    // DataStorage().addListener(_updateOverlay);
+    // Update overlay at 2 FPS (500ms) to prevent log spam and UI overload
+    _overlayUpdateTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      _updateOverlay();
+    });
   }
 
   @override
   void dispose() {
-    DataStorage().removeListener(_updateOverlay);
+    // DataStorage().removeListener(_updateOverlay);
+    _overlayUpdateTimer?.cancel();
     super.dispose();
   }
 
