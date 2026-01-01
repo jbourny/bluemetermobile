@@ -1,4 +1,5 @@
 enum AttrType {
+  unknown(0),
   attrName(1),
   attrId(10),
   attrProfessionId(0xDC),
@@ -19,6 +20,14 @@ enum AttrType {
 
   final int value;
   const AttrType(this.value);
+
+  static AttrType fromId(int id) {
+    try {
+      return AttrType.values.firstWhere((e) => e.value == id, orElse: () => AttrType.unknown);
+    } catch (e) {
+      return AttrType.unknown;
+    }
+  }
 
   static AttrType? fromValue(int value) {
     try {

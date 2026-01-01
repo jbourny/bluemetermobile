@@ -26,23 +26,29 @@ class DpsData {
   
   // Simple DPS based on total time (start to end)
   double get simpleDps {
-    if (startLoggedTick == null || lastLoggedTick <= startLoggedTick!) return 0.0;
+    if (startLoggedTick == null) return 0.0;
+    if (lastLoggedTick <= startLoggedTick!) {
+       // Duration is 0 (single hit or instant). Return total damage as DPS (effectively 1s duration).
+       return totalAttackDamage.toDouble();
+    }
     double seconds = (lastLoggedTick - startLoggedTick!) / 10000000.0;
-    if (seconds <= 0) return 0.0;
+    if (seconds <= 0) return totalAttackDamage.toDouble();
     return totalAttackDamage.toDouble() / seconds;
   }
 
   double get simpleHps {
-    if (startLoggedTick == null || lastLoggedTick <= startLoggedTick!) return 0.0;
+    if (startLoggedTick == null) return 0.0;
+    if (lastLoggedTick <= startLoggedTick!) return totalHeal.toDouble();
     double seconds = (lastLoggedTick - startLoggedTick!) / 10000000.0;
-    if (seconds <= 0) return 0.0;
+    if (seconds <= 0) return totalHeal.toDouble();
     return totalHeal.toDouble() / seconds;
   }
 
   double get simpleTakenDps {
-    if (startLoggedTick == null || lastLoggedTick <= startLoggedTick!) return 0.0;
+    if (startLoggedTick == null) return 0.0;
+    if (lastLoggedTick <= startLoggedTick!) return totalTakenDamage.toDouble();
     double seconds = (lastLoggedTick - startLoggedTick!) / 10000000.0;
-    if (seconds <= 0) return 0.0;
+    if (seconds <= 0) return totalTakenDamage.toDouble();
     return totalTakenDamage.toDouble() / seconds;
   }
 }

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:fixnum/fixnum.dart';
-import 'core/packet_analyzer.dart';
+import 'core/analyze/packet_analyzer_v2.dart';
 import 'core/state/data_storage.dart';
 import 'core/models/classes.dart';
 
@@ -384,14 +384,14 @@ class _HomePageState extends State<HomePage> {
 
   bool _isVpnRunning = false;
   StreamSubscription? _packetSubscription;
-  late PacketAnalyzer _packetAnalyzer;
+  late PacketAnalyzerV2 _packetAnalyzer;
   Timer? _overlayUpdateTimer;
   ReceivePort? _receivePort;
 
   @override
   void initState() {
     super.initState();
-    _packetAnalyzer = PacketAnalyzer(onDamageDetected: _onDamageDetected);
+    _packetAnalyzer = PacketAnalyzerV2(DataStorage());
     
     // Setup communication port
     _receivePort = ReceivePort();
@@ -417,11 +417,6 @@ class _HomePageState extends State<HomePage> {
     // DataStorage().removeListener(_updateOverlay);
     _overlayUpdateTimer?.cancel();
     super.dispose();
-  }
-
-  void _onDamageDetected(int damage, bool isCrit) {
-    // Logic moved to DataStorage.
-    // Overlay update is handled by DataStorage listener.
   }
 
   Future<void> _updateOverlay() async {
@@ -455,14 +450,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _onPacketData(dynamic event) async {
+    // debugPrint("Received packet data: ${event.runtimeType}");
     if (event is Uint8List) {
-      await _packetAnalyzer.processPacket(event);
+      // debugPrint("Processing ${event.length} bytes");
+      _packetAnalyzer.processPacket(event);
     } else if (event is List<int>) {
-      await _packetAnalyzer.processPacket(Uint8List.fromList(event));
+      _packetAnalyzer.processPacket(Uint8List.fromList(event));
     } else if (event is String) {
       try {
         final bytes = _hexToBytes(event);
-        await _packetAnalyzer.processPacket(bytes);
+        _packetAnalyzer.processPacket(bytes);
       } catch (e) {
         debugPrint("Error processing packet: $e");
       }

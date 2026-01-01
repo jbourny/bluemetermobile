@@ -8,9 +8,7 @@ import '../services/database_service.dart';
 class DataStorage extends ChangeNotifier {
   static final DataStorage _instance = DataStorage._internal();
   factory DataStorage() => _instance;
-  DataStorage._internal() {
-    // _loadPersistedData();
-  }
+  DataStorage._internal();
 
   Int64 _currentPlayerUuid = Int64.ZERO;
   Int64 get currentPlayerUuid => _currentPlayerUuid;
@@ -76,7 +74,6 @@ class DataStorage extends ChangeNotifier {
   DpsData getOrCreateDpsData(Int64 uid) {
     if (!_fullDpsDatas.containsKey(uid)) {
       _fullDpsDatas[uid] = DpsData(uid: uid);
-      // If we have player info, check if it's NPC? (Logic to be added)
     }
     return _fullDpsDatas[uid]!;
   }
@@ -103,7 +100,7 @@ class DataStorage extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addHeal(Int64 healerUid, Int64 targetUid, Int64 healAmount, int tick) {
+  void addHealing(Int64 healerUid, Int64 targetUid, Int64 healAmount, int tick) {
     // 1. Add Heal Output to Healer
     var healerData = getOrCreateDpsData(healerUid);
     healerData.startLoggedTick ??= tick;
@@ -112,15 +109,57 @@ class DataStorage extends ChangeNotifier {
     if (healerData.startLoggedTick != null) {
        healerData.activeCombatTicks = tick - healerData.startLoggedTick!;
     }
-
-    // We could also track "Heal Received" on target if needed, but usually HPS is about output.
     
     notifyListeners();
   }
 
   void reset() {
     _fullDpsDatas.clear();
-    // _playerInfoDatas.clear(); // Usually we keep player info?
+    notifyListeners();
+  }
+
+  // --- Player Info Setters ---
+
+  void ensurePlayer(Int64 uid) {
+    if (!_playerInfoDatas.containsKey(uid)) {
+      _playerInfoDatas[uid] = PlayerInfo(uid: uid);
+      notifyListeners();
+    }
+  }
+
+  void setPlayerName(Int64 uid, String name) {
+    ensurePlayer(uid);
+    _playerInfoDatas[uid]!.name = name;
+    notifyListeners();
+  }
+
+  void setPlayerProfessionId(Int64 uid, int id) {
+    ensurePlayer(uid);
+    _playerInfoDatas[uid]!.professionId = id;
+    notifyListeners();
+  }
+
+  void setPlayerCombatPower(Int64 uid, int value) {
+    ensurePlayer(uid);
+    _playerInfoDatas[uid]!.combatPower = value;
+    notifyListeners();
+  }
+
+  void setPlayerLevel(Int64 uid, int value) {
+    ensurePlayer(uid);
+    _playerInfoDatas[uid]!.level = value;
+    notifyListeners();
+  }
+
+  void setPlayerHp(Int64 uid, int value) {
+    ensurePlayer(uid);
+    _playerInfoDatas[uid]!.hp = Int64(value);
+    notifyListeners();
+  }
+
+  void setPlayerMaxHp(Int64 uid, int value) {
+    ensurePlayer(uid);
+    _playerInfoDatas[uid]!.maxHp = Int64(value);
     notifyListeners();
   }
 }
