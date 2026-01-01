@@ -12,12 +12,12 @@ import 'state/data_storage.dart';
 
 class PacketAnalyzer {
   // Method IDs
-  static const int _methodSyncNearEntities = 0x00000006;
-  static const int _methodSyncContainerData = 0x00000015;
-  static const int _methodSyncContainerDirtyData = 0x00000016;
-  static const int _methodSyncToMeDeltaInfo = 0x0000002E;
-  static const int _methodSyncNearDeltaInfo = 0x0000002D;
-  static const int _serviceUuid = 0x63335342; // 0x0000000063335342
+  static const int _methodSyncNearEntities = 0x00000006; // int = 6
+  static const int _methodSyncContainerData = 0x00000015; // int = 21
+  static const int _methodSyncContainerDirtyData = 0x00000016; // int = 22
+  static const int _methodSyncToMeDeltaInfo = 0x0000002E; // int = 46
+  static const int _methodSyncNearDeltaInfo = 0x0000002D; // int = 45
+  static const int _serviceUuid = 0x63335342; // int = 1667330242
 
   final Function(int damage, bool isCrit) onDamageDetected;
   final BytesBuilder _buffer = BytesBuilder();
@@ -165,7 +165,7 @@ class PacketAnalyzer {
     }
 
     // debugPrint("Notify Method: $methodId");
-    debugPrint("[BM] Notify Method: $methodId");
+    debugPrint("[BM] Notify Method V2: $methodId");
 
     if (methodId == _methodSyncToMeDeltaInfo) {
       await _processSyncToMeDeltaInfo(payload);
@@ -177,6 +177,38 @@ class PacketAnalyzer {
       await _processSyncContainerData(payload);
     } else if (methodId == _methodSyncContainerDirtyData) {
       await _processSyncContainerDirtyData(payload);
+    }
+    else{
+      // try{
+      //     debugPrint("[BM] Trying to parse unknown Notify Method: $methodId as SyncContainerData");
+      //     final msg = SyncContainerData.fromBuffer(payload);
+      //     if (msg.hasVData() && msg.vData.hasCharId()) {
+      //       debugPrint("[BM] Successfully parsed SyncContainerData from Notify (MethodId=$methodId)");
+      //       await _processSyncContainerData(payload);
+      //       return;
+      //     }
+      //     else{
+      //       debugPrint("[BM] Trying to parse unknown Notify Method: $methodId as SyncContainerDirtyData");
+      //       final msg = SyncContainerDirtyData.fromBuffer(payload);
+      //       if (msg.hasVData() && msg.vData.bufferS.isNotEmpty) {
+      //         debugPrint("[BM] Successfully parsed SyncContainerDirtyData from Notify (MethodId=$methodId)");
+      //         await _processSyncContainerDirtyData(payload);
+      //         return;
+      //       }
+      //     }
+      // }
+      // catch(e){
+      //   try{
+
+      //   }
+      //   catch(e){
+      //     // ignore
+
+      //   }
+
+      //   // ignore
+      // }
+      debugPrint("[BM] Unknown Notify Method: $methodId");
     }
   }
 
@@ -458,7 +490,8 @@ class PacketAnalyzer {
 
       final attrType = AttrType.fromValue(attr.id);
       if (attrType == null) {
-         debugPrint("[BM] Unknown Attr ID: ${attr.id} Len: ${attr.rawData.length}");
+        // On affiche l'ID, la taille et les données brutes pour le debug
+         debugPrint("[BM] Unknown Attr ID: ${attr.id} Len: ${attr.rawData.length} : ${CodedBufferReader(attr.rawData).readString()}");
          continue;
       }
 
