@@ -16,38 +16,35 @@ class DpsData {
   DpsData({required this.uid});
 
   double get dps {
-    if (activeCombatTicks <= 0) return 0.0;
-    // Ticks are usually 100ns or similar in C#, need to check conversion.
-    // Assuming standard TimeSpan ticks (10,000,000 per second)
-    double seconds = activeCombatTicks / 10000000.0;
-    if (seconds <= 0) return 0.0;
+    if (activeCombatTicks <= 0) return totalAttackDamage.toDouble();
+    // Ticks are in milliseconds (from DateTime.now().millisecondsSinceEpoch)
+    double seconds = activeCombatTicks / 1000.0;
+    // Enforce minimum 1s duration to avoid massive spikes at start of combat
+    if (seconds < 1.0) seconds = 1.0;
     return totalAttackDamage.toDouble() / seconds;
   }
   
   // Simple DPS based on total time (start to end)
   double get simpleDps {
     if (startLoggedTick == null) return 0.0;
-    if (lastLoggedTick <= startLoggedTick!) {
-       // Duration is 0 (single hit or instant). Return total damage as DPS (effectively 1s duration).
-       return totalAttackDamage.toDouble();
-    }
-    double seconds = (lastLoggedTick - startLoggedTick!) / 10000000.0;
-    if (seconds <= 0) return totalAttackDamage.toDouble();
+    double seconds = (lastLoggedTick - startLoggedTick!) / 1000.0;
+    // Enforce minimum 1s duration to avoid massive spikes at start of combat
+    if (seconds < 1.0) seconds = 1.0;
     return totalAttackDamage.toDouble() / seconds;
   }
 
   double get simpleHps {
     if (startLoggedTick == null) return 0.0;
-    if (lastLoggedTick <= startLoggedTick!) return totalHeal.toDouble();
-    double seconds = (lastLoggedTick - startLoggedTick!) / 10000000.0;
-    if (seconds <= 0) return totalHeal.toDouble();
+    double seconds = (lastLoggedTick - startLoggedTick!) / 1000.0;
+    if (seconds < 1.0) seconds = 1.0;
     return totalHeal.toDouble() / seconds;
   }
 
   double get simpleTakenDps {
     if (startLoggedTick == null) return 0.0;
-    if (lastLoggedTick <= startLoggedTick!) return totalTakenDamage.toDouble();
-    double seconds = (lastLoggedTick - startLoggedTick!) / 10000000.0;
+    double seconds = (lastLoggedTick - startLoggedTick!) / 1000.0;
+    if (seconds < 1.0) seconds = 1.0;
+    return totalTakenDamage.toDouble() / seconds;
     if (seconds <= 0) return totalTakenDamage.toDouble();
     return totalTakenDamage.toDouble() / seconds;
   }

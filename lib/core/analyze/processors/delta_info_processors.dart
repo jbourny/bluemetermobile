@@ -89,10 +89,16 @@ abstract class BaseDeltaInfoProcessor implements IMessageProcessor {
           
           // Also handle Healing.
           
-          final damageValue = d.value;
-          final isCrit = d.typeFlag & 1 != 0; // Assuming bit 0 is crit, need to verify C# logic if possible, but usually flags work like this.
-          // Wait, C# code for flags wasn't fully visible.
-          // But `SyncDamageInfo` has `type` (EDamageType) and `typeFlag`.
+          Int64 damageValue = Int64.ZERO;
+          if (d.hasValue()) {
+            damageValue = d.value;
+          } else if (d.hasLuckyValue()) {
+            damageValue = d.luckyValue;
+          }
+          
+          if (damageValue == Int64.ZERO) continue;
+
+          final isCrit = d.typeFlag & 1 != 0; 
           
           if (d.type == EDamageType.heal) {
              // Handle Healing
@@ -123,8 +129,20 @@ class SyncToMeDeltaInfoProcessor extends BaseDeltaInfoProcessor {
   void process(Uint8List payload) {
     try {
       final msg = SyncToMeDeltaInfo.fromBuffer(payload);
-      if (msg.hasDeltaInfo() && msg.deltaInfo.hasBaseDelta()) {
-        _processAoiSyncDelta(msg.deltaInfo.baseDelta);
+      
+      if (msg.hasDeltaInfo()) {
+        final deltaInfo = msg.deltaInfo;
+        final uuid = deltaInfo.uuid;
+        
+        // Update CurrentPlayerUUID if it's the first time or changed
+        if (uuid != Int64.ZERO && _storage.currentPlayerUuid != uuid) {
+          _storage.currentPlayerUuid = uuid;
+          _storage.ensurePlayer(uuid);
+        }
+
+        if (deltaInfo.hasBaseDelta()) {
+          _processAoiSyncDelta(deltaInfo.baseDelta);
+        }
       }
     } catch (e) {
       debugPrint("Error processing SyncToMeDeltaInfo: $e");
