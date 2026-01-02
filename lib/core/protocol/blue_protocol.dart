@@ -729,3 +729,85 @@ class SyncContainerDirtyData extends GeneratedMessage {
   bool hasVData() => $_has(0);
   void clearVData() => clearField(1);
 }
+
+class TeamMemData extends GeneratedMessage {
+  static final BuilderInfo _i = BuilderInfo('TeamMemData', package: const PackageName('BlueProto'), createEmptyInstance: create)
+    ..aInt64(1, 'charId')
+    ..hasRequiredFields = false;
+
+  TeamMemData() : super();
+  TeamMemData.fromBuffer(List<int> i, [ExtensionRegistry r = ExtensionRegistry.EMPTY]) : super() {
+    mergeFromBuffer(i, r);
+  }
+  
+  @override
+  TeamMemData clone() => TeamMemData()..mergeFromMessage(this);
+  @override
+  TeamMemData createEmptyInstance() => create();
+  @override
+  BuilderInfo get info_ => _i;
+
+  static TeamMemData create() => TeamMemData();
+  static PbList<TeamMemData> createRepeated() => PbList<TeamMemData>();
+  static TeamMemData getDefault() => _defaultInstance ??= create()..freeze();
+  static TeamMemData? _defaultInstance;
+
+  Int64 get charId => $_getI64(0);
+  set charId(Int64 v) { $_setInt64(0, v); }
+  bool hasCharId() => $_has(0);
+  void clearCharId() => clearField(1);
+}
+
+class CharTeam extends GeneratedMessage {
+  static final BuilderInfo _i = BuilderInfo('CharTeam', package: const PackageName('BlueProto'), createEmptyInstance: create)
+    ..aInt64(1, 'teamId')
+    ..aInt64(2, 'leaderId')
+    ..a<int>(3, 'teamTargetId', PbFieldType.OU3)
+    ..a<int>(4, 'teamNum', PbFieldType.OU3)
+    ..p<Int64>(5, 'charIds', PbFieldType.K6)
+    ..aOB(6, 'isMatching')
+    ..a<int>(7, 'charTeamVersion', PbFieldType.O3)
+    ..m<Int64, TeamMemData>(8, 'teamMemberData', entryClassName: 'CharTeam.TeamMemberDataEntry', keyFieldType: PbFieldType.O6, valueFieldType: PbFieldType.OM, valueCreator: TeamMemData.create, packageName: const PackageName('BlueProto'))
+    ..hasRequiredFields = false;
+
+  CharTeam() : super();
+  CharTeam.fromBuffer(List<int> i, [ExtensionRegistry r = ExtensionRegistry.EMPTY]) : super() {
+    mergeFromBuffer(i, r);
+  }
+  
+  @override
+  CharTeam clone() => CharTeam()..mergeFromMessage(this);
+  @override
+  CharTeam createEmptyInstance() => create();
+  @override
+  BuilderInfo get info_ => _i;
+
+  static CharTeam create() => CharTeam();
+  static PbList<CharTeam> createRepeated() => PbList<CharTeam>();
+  static CharTeam getDefault() => _defaultInstance ??= create()..freeze();
+  static CharTeam? _defaultInstance;
+
+  Int64 get teamId => $_getI64(0);
+  set teamId(Int64 v) { $_setInt64(0, v); }
+  bool hasTeamId() => $_has(0);
+  void clearTeamId() => clearField(1);
+
+  Int64 get leaderId => $_getI64(1);
+  set leaderId(Int64 v) { $_setInt64(1, v); }
+  bool hasLeaderId() => $_has(1);
+  void clearLeaderId() => clearField(2);
+
+  int get teamNum => $_getIZ(3);
+  set teamNum(int v) { $_setUnsignedInt32(3, v); }
+  bool hasTeamNum() => $_has(3);
+  void clearTeamNum() => clearField(4);
+
+  List<Int64> get charIds => $_getList(4);
+
+  bool get isMatching => $_getBF(5);
+  set isMatching(bool v) { $_setBool(5, v); }
+  bool hasIsMatching() => $_has(5);
+  void clearIsMatching() => clearField(6);
+
+  Map<Int64, TeamMemData> get teamMemberData => $_getMap(7);
+}

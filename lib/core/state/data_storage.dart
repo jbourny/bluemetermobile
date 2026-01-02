@@ -34,7 +34,18 @@ class DataStorage extends ChangeNotifier {
   final Map<Int64, DpsData> _fullDpsDatas = {};
 
   Map<Int64, PlayerInfo> get playerInfoDatas => Map.unmodifiable(_playerInfoDatas);
-  Map<Int64, DpsData> get fullDpsDatas => Map.unmodifiable(_fullDpsDatas);
+  
+  // Filter DPS datas to only include entities that are identified as players (exist in playerInfoDatas)
+  // This hides monsters/NPCs from the DPS list.
+  Map<Int64, DpsData> get fullDpsDatas {
+    final filtered = <Int64, DpsData>{};
+    _fullDpsDatas.forEach((key, value) {
+      if (_playerInfoDatas.containsKey(key)) {
+        filtered[key] = value;
+      }
+    });
+    return Map.unmodifiable(filtered);
+  }
 
   void updatePlayerInfo(PlayerInfo info) {
     _playerInfoDatas[info.uid] = info;
@@ -130,6 +141,7 @@ class DataStorage extends ChangeNotifier {
   void setPlayerName(Int64 uid, String name) {
     ensurePlayer(uid);
     _playerInfoDatas[uid]!.name = name;
+    debugPrint("[BM] setPlayerName called: UID=$uid, Name=$name");
     notifyListeners();
   }
 

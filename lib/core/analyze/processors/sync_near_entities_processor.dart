@@ -21,10 +21,19 @@ class SyncNearEntitiesProcessor implements IMessageProcessor {
       if (syncNearEntities.appear.isEmpty) return;
 
       for (var entity in syncNearEntities.appear) {
+        // Also process entMonster if needed, but for now we focus on players.
+        // Wait, SyncNearEntities also sends "Me" sometimes? Or just others?
+        // Usually "Me" is SyncContainerData. But maybe in some cases...
+        
         if (entity.entType != EEntityType.entChar) continue;
 
         final playerUid = entity.uuid >> 16;
         if (playerUid == Int64.ZERO) continue;
+        
+        // Check if this is "Me"
+        if (playerUid == _storage.currentPlayerUuid) {
+           debugPrint("[BM] SyncNearEntities found ME ($playerUid)");
+        }
 
         final attrCollection = entity.attrs;
         if (attrCollection.attrs.isEmpty) continue;
@@ -59,7 +68,9 @@ class SyncNearEntitiesProcessor implements IMessageProcessor {
 
       switch (attrType) {
         case AttrType.attrName:
-          _storage.setPlayerName(playerUid, reader.readString());
+          final name = reader.readString();
+          debugPrint("[BM] SyncNearEntities Name Update for $playerUid: $name");
+          _storage.setPlayerName(playerUid, name);
           break;
         case AttrType.attrProfessionId:
           _storage.setPlayerProfessionId(playerUid, reader.readInt32());

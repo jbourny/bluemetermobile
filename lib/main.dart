@@ -427,6 +427,9 @@ class _HomePageState extends State<HomePage> {
       final uid = e.key;
       final dpsData = e.value;
       final info = await storage.getPlayerInfo(uid);
+      // if (uid == storage.currentPlayerUuid) {
+      //    debugPrint("[BM Main] Sending Overlay Update for Me ($uid): Name=${info?.name}, DPS=${dpsData.simpleDps}");
+      // }
       return {
         'name': info?.name ?? "Unknown (${uid.toString()})",
         'classId': info?.professionId ?? 0,

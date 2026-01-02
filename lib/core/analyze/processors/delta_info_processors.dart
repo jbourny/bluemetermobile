@@ -98,7 +98,32 @@ abstract class BaseDeltaInfoProcessor implements IMessageProcessor {
           
           if (damageValue == Int64.ZERO) continue;
 
-          final isCrit = d.typeFlag & 1 != 0; 
+          // Filter out entities that are not players for the DPS list
+          // If attacker is not a player, we don't want to show them in the DPS list usually.
+          // Unless it's a pet/summon?
+          // d.ownerId might link to the summoner.
+          
+          // If attacker is NOT a player, check if it's a summon (topSummonerId).
+          // If topSummonerId is set, use that as the attacker.
+          
+          // The logic above already does:
+          // final attackerRaw = d.topSummonerId != Int64.ZERO ? d.topSummonerId : d.attackerUuid;
+          // final isAttackerPlayer = _isUuidPlayerRaw(attackerRaw);
+          
+          // So if it's a summon, attackerRaw becomes the player's UUID.
+          // And isAttackerPlayer becomes true.
+          
+          // If isAttackerPlayer is false, it means it's a mob/NPC attacking.
+          // We only want to record this if the target is a player (Damage Taken).
+          
+          // Ghost entry issue:
+          // If we have an entry with 0 DPS, it might be created but never updated with damage?
+          // Or maybe `ensurePlayer` is called somewhere else?
+          
+          // `_processAoiSyncDelta` calls `_storage.ensurePlayer(targetUuid)` if attrs are present.
+          // This is correct, we want to know about players around us.
+          
+          // But `addDamage` creates `DpsData`.
           
           if (d.type == EDamageType.heal) {
              // Handle Healing
@@ -107,10 +132,8 @@ abstract class BaseDeltaInfoProcessor implements IMessageProcessor {
              }
           } else {
              // Handle Damage
-             // Filter out Miss/Immune/Fall/Absorbed if needed, or count them as 0 damage?
-             // Usually `value` is 0 for miss.
              
-             if (d.type == EDamageType.normal || d.type == EDamageType.miss) { // Miss might have 0 value
+             if (d.type == EDamageType.normal || d.type == EDamageType.miss) { 
                 if (isAttackerPlayer) {
                   _storage.addDamage(attackerUuid, targetUuid, damageValue, DateTime.now().millisecondsSinceEpoch);
                 }
@@ -135,9 +158,14 @@ class SyncToMeDeltaInfoProcessor extends BaseDeltaInfoProcessor {
         final uuid = deltaInfo.uuid;
         
         // Update CurrentPlayerUUID if it's the first time or changed
-        if (uuid != Int64.ZERO && _storage.currentPlayerUuid != uuid) {
-          _storage.currentPlayerUuid = uuid;
-          _storage.ensurePlayer(uuid);
+        // Note: SyncToMeDeltaInfo.uuid is the raw UUID (shifted left 16 bits + type)
+        // We need to shift it right to get the actual player UID.
+        
+        final playerUid = uuid >> 16;
+        
+        if (playerUid != Int64.ZERO && _storage.currentPlayerUuid != playerUid) {
+          _storage.currentPlayerUuid = playerUid;
+          _storage.ensurePlayer(playerUid);
         }
 
         if (deltaInfo.hasBaseDelta()) {

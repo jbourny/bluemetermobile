@@ -20,8 +20,11 @@ class SyncContainerDataProcessor implements IMessageProcessor {
       final vData = syncContainerData.vData;
       if (vData.charId == Int64.ZERO) return;
 
-      final playerUid = vData.charId;
+      // CharId is the Raw UUID, so we need to shift it to get the Player UID.
+      final playerUid = vData.charId >> 16;
       
+      debugPrint("[BM] SyncContainerData received. RawID: ${vData.charId}, PlayerUID: $playerUid");
+
       // Update current player UID if not set or different? 
       // Usually SyncContainerData is for "Me".
       _storage.currentPlayerUuid = playerUid;
@@ -41,12 +44,17 @@ class SyncContainerDataProcessor implements IMessageProcessor {
       }
 
       if (vData.hasCharBase()) {
+        debugPrint("[BM] SyncContainerData Name: '${vData.charBase.name}'");
         if (vData.charBase.name.isNotEmpty) {
           _storage.setPlayerName(playerUid, vData.charBase.name);
+        } else {
+          debugPrint("[BM] SyncContainerData received but Name is empty!");
         }
         if (vData.charBase.fightPoint != 0) {
           _storage.setPlayerCombatPower(playerUid, vData.charBase.fightPoint);
         }
+      } else {
+        debugPrint("[BM] SyncContainerData received but CharBase is missing!");
       }
 
       if (vData.hasProfessionList() && vData.professionList.curProfessionId != 0) {

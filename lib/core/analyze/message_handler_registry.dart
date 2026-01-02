@@ -4,7 +4,9 @@ import '../state/data_storage.dart';
 import 'processors/message_processor.dart';
 import 'processors/sync_near_entities_processor.dart';
 import 'processors/sync_container_data_processor.dart';
+import 'processors/sync_container_dirty_data_processor.dart';
 import 'processors/delta_info_processors.dart';
+import 'processors/team_matching_processor.dart';
 
 class MessageHandlerRegistry {
   final Map<int, IMessageProcessor> _processors = {};
@@ -20,10 +22,10 @@ class MessageHandlerRegistry {
   MessageHandlerRegistry(DataStorage storage) {
     _processors[_methodSyncNearEntities] = SyncNearEntitiesProcessor(storage);
     _processors[_methodSyncContainerData] = SyncContainerDataProcessor(storage);
-    // _processors[_methodSyncContainerDirtyData] = SyncContainerDirtyDataProcessor(storage); // Not implemented yet
+    _processors[_methodSyncContainerDirtyData] = SyncContainerDirtyDataProcessor(storage);
     _processors[_methodSyncToMeDeltaInfo] = SyncToMeDeltaInfoProcessor(storage);
     _processors[_methodSyncNearDeltaInfo] = SyncNearDeltaInfoProcessor(storage);
-    // _processors[_methodTeamMatching] = TeamMatchingProcessor(storage); // Not implemented yet
+    _processors[_methodTeamMatching] = TeamMatchingProcessor(storage);
   }
 
   IMessageProcessor? getProcessor(int methodId) {
