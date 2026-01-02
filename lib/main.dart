@@ -172,159 +172,167 @@ class _OverlayWidgetState extends State<OverlayWidget>
       color: Colors.transparent,
       child: Container(
         decoration: _windowDecoration,
-        child: Column(
+        child: Stack(
           children: [
-            // Title Bar
-            GestureDetector(
-              onPanStart: (details) async {
-                _isDragging = false;
-                try {
-                  final pos = await FlutterOverlayWindow.getOverlayPosition();
-                  // Convert physical position (from native) to logical pixels (for Flutter)
-                  _windowX = pos.x;
-                  _windowY = pos.y;
-                  _lastMoveX=details.globalPosition.dx;
-                  _lastMoveY=details.globalPosition.dy;
-                  _windowDeltaX=0;
-                  _windowDeltaY=0;
-                  _isDragging = true;
-                                } catch (e) {
-                  debugPrint("Error getting overlay position: $e");
-                }
-              },
-              onPanUpdate: (details) {
-                if (!_isDragging) return;
-                  final dpr = MediaQuery.of(context).devicePixelRatio;
-                  // Arrondir les deltas pour éviter l'accumulation d'erreurs de flottement
-                _windowDeltaX= details.globalPosition.dx-_lastMoveX;
-                _windowDeltaY= details.globalPosition.dy - _lastMoveY;
-                
-                // Simple delta update.
-                // With alignment: OverlayAlignment.topLeft, this should be stable.
-                debugPrint("[BM Overlay] dpr:$dpr Moving overlay to (${_windowX + _windowDeltaX} [+${details.delta.dx}], ${_windowY + _windowDeltaY} [+${details.delta.dy}])");
-                
-                FlutterOverlayWindow.moveOverlay(
-                  OverlayPosition(_windowX+_windowDeltaX/dpr, _windowY+_windowDeltaY/dpr),
-                );
-              },
-              child: Container(
-                height: 32, // Reduced height
-                color: Colors.transparent, // Hit test
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TabBar(
-                        controller: _tabController,
-                        labelPadding: EdgeInsets.zero,
-                        indicatorSize: TabBarIndicatorSize.label,
-                        indicatorColor: Colors.transparent,
-                        dividerColor: Colors.transparent,
-                        labelColor: Colors.blue,
-                        unselectedLabelColor: Colors.white,
-                        tabs: const [
-                          Tab(child: Icon(Icons.star, size: 16)),
-                          Tab(child: Icon(Icons.flash_on, size: 16)), // DPS (Sword replacement)
-                          Tab(child: Icon(Icons.shield, size: 16)),
-                          Tab(child: Icon(Icons.local_hospital, size: 16)),
-                        ],
-                      ),
-                    ),
-                    // Actions
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+            Column(
+              children: [
+                // Title Bar
+                GestureDetector(
+                  onPanStart: (details) async {
+                    _isDragging = false;
+                    try {
+                      final pos = await FlutterOverlayWindow.getOverlayPosition();
+                      // Convert physical position (from native) to logical pixels (for Flutter)
+                      _windowX = pos.x;
+                      _windowY = pos.y;
+                      _lastMoveX=details.globalPosition.dx;
+                      _lastMoveY=details.globalPosition.dy;
+                      _windowDeltaX=0;
+                      _windowDeltaY=0;
+                      _isDragging = true;
+                                    } catch (e) {
+                      debugPrint("Error getting overlay position: $e");
+                    }
+                  },
+                  onPanUpdate: (details) {
+                    if (!_isDragging) return;
+                      final dpr = MediaQuery.of(context).devicePixelRatio;
+                      // Arrondir les deltas pour éviter l'accumulation d'erreurs de flottement
+                    _windowDeltaX= details.globalPosition.dx-_lastMoveX;
+                    _windowDeltaY= details.globalPosition.dy - _lastMoveY;
+                    
+                    // Simple delta update.
+                    // With alignment: OverlayAlignment.topLeft, this should be stable.
+                    debugPrint("[BM Overlay] dpr:$dpr Moving overlay to (${_windowX + _windowDeltaX} [+${details.delta.dx}], ${_windowY + _windowDeltaY} [+${details.delta.dy}])");
+                    
+                    FlutterOverlayWindow.moveOverlay(
+                      OverlayPosition(_windowX+_windowDeltaX/dpr, _windowY+_windowDeltaY/dpr),
+                    );
+                  },
+                  child: Container(
+                    height: 32, // Reduced height
+                    color: Colors.transparent, // Hit test
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
                       children: [
-                        GestureDetector(
-                          onTap: () async {
-                            setState(() {
-                              _isMinimized = true;
-                            });
-                            await FlutterOverlayWindow.resizeOverlay(135, 30, false);
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 2),
-                            child: Icon(Icons.remove, size: 16, color: Colors.white70),
+                        Expanded(
+                          child: TabBar(
+                            controller: _tabController,
+                            labelPadding: EdgeInsets.zero,
+                            indicatorSize: TabBarIndicatorSize.label,
+                            indicatorColor: Colors.transparent,
+                            dividerColor: Colors.transparent,
+                            labelColor: Colors.blue,
+                            unselectedLabelColor: Colors.white,
+                            tabs: const [
+                              Tab(child: Icon(Icons.star, size: 16)),
+                              Tab(child: Icon(Icons.flash_on, size: 16)), // DPS (Sword replacement)
+                              Tab(child: Icon(Icons.shield, size: 16)),
+                              Tab(child: Icon(Icons.local_hospital, size: 16)),
+                            ],
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () async {
-                             final sendPort = IsolateNameServer.lookupPortByName('overlay_communication_port');
-                             if (sendPort != null) {
-                               sendPort.send("RESET");
-                             } else {
-                               debugPrint("Could not find communication port");
-                             }
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 2),
-                            child: Icon(Icons.refresh, size: 16, color: Colors.white70),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () async {
-                            await FlutterOverlayWindow.closeOverlay();
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 2),
-                            child: Icon(Icons.settings, size: 16, color: Colors.white70),
-                          ),
+                        // Actions
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () async {
+                                setState(() {
+                                  _isMinimized = true;
+                                });
+                                await FlutterOverlayWindow.resizeOverlay(135, 30, false);
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 2),
+                                child: Icon(Icons.remove, size: 16, color: Colors.white70),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () async {
+                                 final sendPort = IsolateNameServer.lookupPortByName('overlay_communication_port');
+                                 if (sendPort != null) {
+                                   sendPort.send("RESET");
+                                 } else {
+                                   debugPrint("Could not find communication port");
+                                 }
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 2),
+                                child: Icon(Icons.refresh, size: 16, color: Colors.white70),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () async {
+                                await FlutterOverlayWindow.closeOverlay();
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 2),
+                                child: Icon(Icons.settings, size: 16, color: Colors.white70),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  PlayerList(players: _players, metricType: "dps"),
-                  PlayerList(players: _players, metricType: "dps"),
-                  PlayerList(players: _players, metricType: "taken"),
-                  PlayerList(players: _players, metricType: "heal"),
-                ],
-              ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      PlayerList(players: _players, metricType: "dps"),
+                      PlayerList(players: _players, metricType: "dps"),
+                      PlayerList(players: _players, metricType: "taken"),
+                      PlayerList(players: _players, metricType: "heal"),
+                    ],
+                  ),
+                ),
+              ],
             ),
             // Resize Handle
-            GestureDetector(
-              onPanStart: (details) {
-                // Use logical size directly
-                final size = MediaQuery.of(context).size;
-                _resizeStartWindowSize = size;
-                _dragStartTouchPosition = details.globalPosition;
-              },
-              onPanUpdate: (details) {
-                if (_resizeStartWindowSize == null || _dragStartTouchPosition == null) return;
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: GestureDetector(
+                onPanStart: (details) {
+                  // Use logical size directly
+                  final size = MediaQuery.of(context).size;
+                  _resizeStartWindowSize = size;
+                  _dragStartTouchPosition = details.globalPosition;
+                },
+                onPanUpdate: (details) {
+                  if (_resizeStartWindowSize == null || _dragStartTouchPosition == null) return;
 
-                final currentTouch = details.globalPosition;
-                final diff = currentTouch - _dragStartTouchPosition!;
-                
-                // Calculate new size in logical pixels
-                double newWidth = _resizeStartWindowSize!.width + diff.dx;
-                double newHeight = _resizeStartWindowSize!.height + diff.dy;
+                  final currentTouch = details.globalPosition;
+                  final diff = currentTouch - _dragStartTouchPosition!;
+                  
+                  // Calculate new size in logical pixels
+                  double newWidth = _resizeStartWindowSize!.width + diff.dx;
+                  double newHeight = _resizeStartWindowSize!.height + diff.dy;
 
-                // Min size constraints (logical)
-                if (newWidth < 150) newWidth = 150;
-                if (newHeight < 100) newHeight = 100;
+                  // Min size constraints (logical)
+                  if (newWidth < 150) newWidth = 150;
+                  if (newHeight < 100) newHeight = 100;
 
-                // Save for restore
-                _restoredWidth = newWidth;
-                _restoredHeight = newHeight;
+                  // Save for restore
+                  _restoredWidth = newWidth;
+                  _restoredHeight = newHeight;
 
-                FlutterOverlayWindow.resizeOverlay(
-                  newWidth.toInt(),
-                  newHeight.toInt(),
-                  false,
-                );
-              },
-              child: Container(
-                width: double.infinity,
-                height: 20,
-                color: Colors.transparent,
-                alignment: Alignment.bottomRight,
-                padding: const EdgeInsets.only(right: 4, bottom: 4),
-                child: const Icon(Icons.drag_handle, size: 16, color: Colors.white54),
+                  FlutterOverlayWindow.resizeOverlay(
+                    newWidth.toInt(),
+                    newHeight.toInt(),
+                    false,
+                  );
+                },
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  color: Colors.transparent,
+                  alignment: Alignment.bottomRight,
+                  padding: const EdgeInsets.all(4),
+                  child: const Icon(Icons.south_east, size: 14, color: Colors.white24),
+                ),
               ),
             ),
           ],
