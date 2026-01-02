@@ -279,10 +279,10 @@ class _OverlayWidgetState extends State<OverlayWidget>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildList(null, "dps"),
-                  _buildList(null, "dps"),
-                  _buildList(null, "taken"),
-                  _buildList(null, "heal"),
+                  PlayerList(players: _players, metricType: "dps"),
+                  PlayerList(players: _players, metricType: "dps"),
+                  PlayerList(players: _players, metricType: "taken"),
+                  PlayerList(players: _players, metricType: "heal"),
                 ],
               ),
             ),
@@ -333,109 +333,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
     );
   }
 
-  Widget _buildList(Role? roleFilter, String metricType) {
-    // Determine keys based on metricType
-    String rateKey = 'dps';
-    String totalKey = 'total';
-    if (metricType == 'heal') {
-      rateKey = 'hps';
-      totalKey = 'totalHeal';
-    } else if (metricType == 'taken') {
-      rateKey = 'takenDps';
-      totalKey = 'totalTaken';
-    }
 
-    // Filter
-    var filtered = _players.where((p) {
-      if (roleFilter != null) {
-        final cls = Classes.fromId(p['classId']);
-        if (cls.role != roleFilter) return false;
-      }
-      final total = (p[totalKey] as num?)?.toDouble() ?? 0.0;
-      return total > 0;
-    }).toList();
-
-    if (filtered.isEmpty) {
-      return const Center(
-        child: Text("No data", style: TextStyle(color: Colors.white54, fontSize: 10)),
-      );
-    }
-
-    // Sort
-    filtered.sort((a, b) {
-      final valA = (a[rateKey] as num?)?.toDouble() ?? 0.0;
-      final valB = (b[rateKey] as num?)?.toDouble() ?? 0.0;
-      return valB.compareTo(valA);
-    });
-
-    // Calculate Max for Progress Bar
-    double maxVal = 0.0;
-    if (filtered.isNotEmpty) {
-      maxVal = (filtered.first[rateKey] as num?)?.toDouble() ?? 0.0;
-    }
-    if (maxVal == 0) maxVal = 1.0;
-
-    return ListView.builder(
-      itemCount: filtered.length,
-      padding: EdgeInsets.zero,
-      itemBuilder: (context, index) {
-        final p = filtered[index];
-        final cls = Classes.fromId(p['classId']);
-        final val = (p[rateKey] as num?)?.toDouble() ?? 0.0;
-        final total = (p[totalKey] as num?)?.toInt() ?? 0;
-        final percent = (val / maxVal).clamp(0.0, 1.0);
-
-        return Container(
-          height: 24, // Compact row
-          margin: const EdgeInsets.only(bottom: 1),
-          child: Stack(
-            children: [
-              // Progress Bar Background
-              FractionallySizedBox(
-                widthFactor: percent,
-                child: Container(
-                  color: _getClassColor(cls).withValues(alpha: 0.3),
-                ),
-              ),
-              // Content
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  children: [
-                    // Class Icon/Color Indicator (Small)
-                    Container(width: 2, color: _getClassColor(cls)),
-                    const SizedBox(width: 4),
-                    // Name
-                    Expanded(
-                      child: Text(
-                        "${index + 1}. ${p['name']}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 11,
-                          shadows: [Shadow(blurRadius: 2, color: Colors.black)],
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    // Values
-                    Text(
-                      "${_formatNumber(val)} / ${_formatNumber(total)}",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        shadows: [Shadow(blurRadius: 2, color: Colors.black)],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   Color _getClassColor(Classes cls) {
     switch (cls.role) {
@@ -682,5 +580,191 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+}
+
+class PlayerList extends StatefulWidget {
+  final List<Map<String, dynamic>> players;
+  final String metricType;
+
+  const PlayerList({
+    super.key,
+    required this.players,
+    required this.metricType,
+  });
+
+  @override
+  State<PlayerList> createState() => _PlayerListState();
+}
+
+class _PlayerListState extends State<PlayerList> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Determine keys based on metricType
+    String rateKey = 'dps';
+    String totalKey = 'total';
+    if (widget.metricType == 'heal') {
+      rateKey = 'hps';
+      totalKey = 'totalHeal';
+    } else if (widget.metricType == 'taken') {
+      rateKey = 'takenDps';
+      totalKey = 'totalTaken';
+    }
+
+    // Filter
+    var filtered = widget.players.where((p) {
+      final total = (p[totalKey] as num?)?.toDouble() ?? 0.0;
+      return total > 0;
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return const Center(
+        child: Text("No data", style: TextStyle(color: Colors.white54, fontSize: 10)),
+      );
+    }
+
+    // Sort
+    filtered.sort((a, b) {
+      final valA = (a[rateKey] as num?)?.toDouble() ?? 0.0;
+      final valB = (b[rateKey] as num?)?.toDouble() ?? 0.0;
+      return valB.compareTo(valA);
+    });
+
+    // Calculate Max for Progress Bar
+    double maxVal = 0.0;
+    if (filtered.isNotEmpty) {
+      maxVal = (filtered.first[rateKey] as num?)?.toDouble() ?? 0.0;
+    }
+    if (maxVal == 0) maxVal = 1.0;
+
+    // Find "Me"
+    int myIndex = filtered.indexWhere((p) => p['isMe'] == true);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            ListView.builder(
+              controller: _scrollController,
+              itemCount: filtered.length,
+              itemExtent: 18.0,
+              padding: EdgeInsets.zero,
+              itemBuilder: (context, index) {
+                return _buildRow(filtered[index], index, maxVal, rateKey, totalKey);
+              },
+            ),
+            if (myIndex != -1)
+              AnimatedBuilder(
+                animation: _scrollController,
+                builder: (context, child) {
+                  final double itemTop = myIndex * 18.0;
+                  final double scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+                  final double viewportHeight = constraints.maxHeight;
+                  
+                  // Show sticky if item is below the viewport
+                  if (itemTop > scrollOffset + viewportHeight - 18.0) {
+                     return Positioned(
+                       bottom: 0,
+                       left: 0,
+                       right: 0,
+                       child: Container(
+                         color: Colors.black.withValues(alpha: 0.8),
+                         child: _buildRow(filtered[myIndex], myIndex, maxVal, rateKey, totalKey),
+                       ),
+                     );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRow(Map<String, dynamic> p, int index, double maxVal, String rateKey, String totalKey) {
+    final cls = Classes.fromId(p['classId']);
+    final val = (p[rateKey] as num?)?.toDouble() ?? 0.0;
+    final total = (p[totalKey] as num?)?.toInt() ?? 0;
+    final percent = (val / maxVal).clamp(0.0, 1.0);
+
+    return Container(
+      height: 18,
+      padding: const EdgeInsets.only(bottom: 1),
+      child: Stack(
+        children: [
+          FractionallySizedBox(
+            widthFactor: percent,
+            child: Container(
+              color: _getClassColor(cls).withValues(alpha: 0.3),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                Container(width: 2, color: _getClassColor(cls)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    "${index + 1}. ${p['name']}",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 11,
+                      shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  "${_formatNumber(val)} / ${_formatNumber(total)}",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getClassColor(Classes cls) {
+    switch (cls.role) {
+      case Role.tank:
+        return Colors.blue;
+      case Role.heal:
+        return Colors.green;
+      case Role.dps:
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatNumber(num number) {
+    if (number >= 1000000) {
+      double val = number / 1000000;
+      String s = val < 100 ? val.toStringAsFixed(2) : val.toStringAsFixed(1);
+      return "${s}m";
+    }
+    if (number >= 1000) {
+      double val = number / 1000;
+      String s = val < 100 ? val.toStringAsFixed(2) : val.toStringAsFixed(1);
+      return "${s}k";
+    }
+    return number.toStringAsFixed(0);
   }
 }
