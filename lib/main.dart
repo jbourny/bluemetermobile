@@ -70,36 +70,6 @@ class _OverlayWidgetState extends State<OverlayWidget>
         });
       }
     });
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _fullX = prefs.getDouble('overlay_full_x') ?? 0;
-      _fullY = prefs.getDouble('overlay_full_y') ?? 100;
-      _miniX = prefs.getDouble('overlay_mini_x') ?? 0;
-      _miniY = prefs.getDouble('overlay_mini_y') ?? 100;
-      _restoredWidth = prefs.getDouble('overlay_width') ?? 600;
-      _restoredHeight = prefs.getDouble('overlay_height') ?? 400;
-      _isMinimized = prefs.getBool('overlay_minimized') ?? false;
-    });
-
-    // Apply initial state
-    if (_isMinimized) {
-      _windowX = _miniX;
-      _windowY = _miniY;
-      await FlutterOverlayWindow.resizeOverlay(135, 30, false);
-    } else {
-      _windowX = _fullX;
-      _windowY = _fullY;
-      await FlutterOverlayWindow.resizeOverlay(
-        _restoredWidth.toInt(),
-        _restoredHeight.toInt(),
-        false,
-      );
-    }
-    await FlutterOverlayWindow.moveOverlay(OverlayPosition(_windowX, _windowY));
   }
 
   Future<void> _savePosition() async {
@@ -150,6 +120,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
       );
 
   Widget _buildMinimized() {
+
     final myData = _players.firstWhere(
       (p) => p['isMe'] == true,
       orElse: () => {},
@@ -250,6 +221,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
   }
 
   Widget _buildFull() {
+
     return Material(
       color: Colors.transparent,
       child: Container(
