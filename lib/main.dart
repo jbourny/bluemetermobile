@@ -280,9 +280,9 @@ class _OverlayWidgetState extends State<OverlayWidget>
                 controller: _tabController,
                 children: [
                   _buildList(null, "dps"),
-                  _buildList(Role.dps, "dps"),
-                  _buildList(Role.tank, "taken"),
-                  _buildList(Role.heal, "heal"),
+                  _buildList(null, "dps"),
+                  _buildList(null, "taken"),
+                  _buildList(null, "heal"),
                 ],
               ),
             ),
@@ -334,21 +334,6 @@ class _OverlayWidgetState extends State<OverlayWidget>
   }
 
   Widget _buildList(Role? roleFilter, String metricType) {
-    // Filter
-    var filtered = _players;
-    if (roleFilter != null) {
-      filtered = _players.where((p) {
-        final cls = Classes.fromId(p['classId']);
-        return cls.role == roleFilter;
-      }).toList();
-    }
-
-    if (filtered.isEmpty) {
-      return const Center(
-        child: Text("No data", style: TextStyle(color: Colors.white54, fontSize: 10)),
-      );
-    }
-
     // Determine keys based on metricType
     String rateKey = 'dps';
     String totalKey = 'total';
@@ -358,6 +343,22 @@ class _OverlayWidgetState extends State<OverlayWidget>
     } else if (metricType == 'taken') {
       rateKey = 'takenDps';
       totalKey = 'totalTaken';
+    }
+
+    // Filter
+    var filtered = _players.where((p) {
+      if (roleFilter != null) {
+        final cls = Classes.fromId(p['classId']);
+        if (cls.role != roleFilter) return false;
+      }
+      final total = (p[totalKey] as num?)?.toDouble() ?? 0.0;
+      return total > 0;
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return const Center(
+        child: Text("No data", style: TextStyle(color: Colors.white54, fontSize: 10)),
+      );
     }
 
     // Sort
