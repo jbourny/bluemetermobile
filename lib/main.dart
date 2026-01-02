@@ -47,6 +47,11 @@ class _OverlayWidgetState extends State<OverlayWidget>
   Offset? _dragStartTouchPosition; // Keep for resize
   bool _isDragging = false;
 
+  // Minimize state
+  bool _isMinimized = false;
+  double _restoredWidth = 600;
+  double _restoredHeight = 400;
+
   @override
   void initState() {
     super.initState();
@@ -68,14 +73,105 @@ class _OverlayWidgetState extends State<OverlayWidget>
 
   @override
   Widget build(BuildContext context) {
+    if (_isMinimized) {
+      return _buildMinimized();
+    }
+    return _buildFull();
+  }
+
+  BoxDecoration get _windowDecoration => BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(width: 0.5, color: Colors.white.withValues(alpha: 0.9)),
+      );
+
+  Widget _buildMinimized() {
+    final myData = _players.firstWhere(
+      (p) => p['isMe'] == true,
+      orElse: () => {},
+    );
+    final myDps = (myData['dps'] as num?)?.toDouble() ?? 0.0;
+
+    return Material(
+      color: Colors.transparent,
+      child: GestureDetector(
+        onPanStart: (details) async {
+             _isDragging = false;
+             try {
+               final pos = await FlutterOverlayWindow.getOverlayPosition();
+               _windowX = pos.x;
+               _windowY = pos.y;
+               _lastMoveX=details.globalPosition.dx;
+               _lastMoveY=details.globalPosition.dy;
+               _windowDeltaX=0;
+               _windowDeltaY=0;
+               _isDragging = true;
+             } catch (e) {
+               debugPrint("Error getting overlay position: $e");
+             }
+        },
+        onPanUpdate: (details) {
+             if (!_isDragging) return;
+             final dpr = MediaQuery.of(context).devicePixelRatio;
+             _windowDeltaX= details.globalPosition.dx-_lastMoveX;
+             _windowDeltaY= details.globalPosition.dy - _lastMoveY;
+             FlutterOverlayWindow.moveOverlay(
+               OverlayPosition(_windowX+_windowDeltaX/dpr, _windowY+_windowDeltaY/dpr),
+             );
+        },
+        onTap: () async {
+          setState(() {
+            _isMinimized = false;
+          });
+          await FlutterOverlayWindow.resizeOverlay(
+            _restoredWidth.toInt(),
+            _restoredHeight.toInt(),
+            false,
+          );
+        },
+        child: Container(
+          decoration: _windowDecoration,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+          child: Row(
+            mainAxisSize: MainAxisSize.max,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.flash_on, size: 16, color: Colors.blue),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatNumber(myDps),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+              GestureDetector(
+                onTap: () async {
+                   final sendPort = IsolateNameServer.lookupPortByName('overlay_communication_port');
+                   if (sendPort != null) {
+                     sendPort.send("RESET");
+                   }
+                },
+                child: const Icon(Icons.refresh, size: 16, color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFull() {
     return Material(
       color: Colors.transparent,
       child: Container(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.8),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.5)),
-        ),
+        decoration: _windowDecoration,
         child: Column(
           children: [
             // Title Bar
@@ -125,7 +221,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
                         indicatorColor: Colors.transparent,
                         dividerColor: Colors.transparent,
                         labelColor: Colors.blue,
-                        unselectedLabelColor: Colors.white54,
+                        unselectedLabelColor: Colors.white,
                         tabs: const [
                           Tab(child: Icon(Icons.star, size: 16)),
                           Tab(child: Icon(Icons.flash_on, size: 16)), // DPS (Sword replacement)
@@ -134,32 +230,46 @@ class _OverlayWidgetState extends State<OverlayWidget>
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // Reset Button
-                    IconButton(
-                      icon: const Icon(Icons.refresh, size: 16, color: Colors.white70),
-                      tooltip: "Reset",
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () async {
-                         final sendPort = IsolateNameServer.lookupPortByName('overlay_communication_port');
-                         if (sendPort != null) {
-                           sendPort.send("RESET");
-                         } else {
-                           debugPrint("Could not find communication port");
-                         }
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    // Settings (Close) Button
-                    IconButton(
-                      icon: const Icon(Icons.settings, size: 16, color: Colors.white70),
-                      tooltip: "Settings",
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () async {
-                        await FlutterOverlayWindow.closeOverlay();
-                      },
+                    // Actions
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: () async {
+                            setState(() {
+                              _isMinimized = true;
+                            });
+                            await FlutterOverlayWindow.resizeOverlay(135, 30, false);
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 2),
+                            child: Icon(Icons.remove, size: 16, color: Colors.white70),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () async {
+                             final sendPort = IsolateNameServer.lookupPortByName('overlay_communication_port');
+                             if (sendPort != null) {
+                               sendPort.send("RESET");
+                             } else {
+                               debugPrint("Could not find communication port");
+                             }
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 2),
+                            child: Icon(Icons.refresh, size: 16, color: Colors.white70),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () async {
+                            await FlutterOverlayWindow.closeOverlay();
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 2),
+                            child: Icon(Icons.settings, size: 16, color: Colors.white70),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -197,6 +307,10 @@ class _OverlayWidgetState extends State<OverlayWidget>
                 // Min size constraints (logical)
                 if (newWidth < 150) newWidth = 150;
                 if (newHeight < 100) newHeight = 100;
+
+                // Save for restore
+                _restoredWidth = newWidth;
+                _restoredHeight = newHeight;
 
                 FlutterOverlayWindow.resizeOverlay(
                   newWidth.toInt(),
@@ -432,6 +546,7 @@ class _HomePageState extends State<HomePage> {
       // }
       return {
         'name': info?.name ?? "Unknown (${uid.toString()})",
+        'isMe': uid == storage.currentPlayerUuid,
         'classId': info?.professionId ?? 0,
         'dps': dpsData.simpleDps,
         'total': dpsData.totalAttackDamage.toInt(),
