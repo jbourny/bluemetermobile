@@ -27,6 +27,9 @@ class TranslationService {
       'Tank': 'Tank',
       'Heal': 'Healer',
       'DPS': 'DPS',
+      'NoData': 'No data',
+      'Start': 'Start',
+      'Stop': 'Stop',
     },
     'fr': {
       'Unknown': 'Inconnu',
@@ -41,6 +44,9 @@ class TranslationService {
       'Tank': 'Tank',
       'Heal': 'Soigneur',
       'DPS': 'DPS',
+      'NoData': 'Pas de données',
+      'Start': 'Démarrer',
+      'Stop': 'Arrêter',
     },
     'zh': {
       'Unknown': '未知',
@@ -55,6 +61,9 @@ class TranslationService {
       'Tank': '坦克',
       'Heal': '治疗',
       'DPS': '输出',
+      'NoData': '无数据',
+      'Start': '开始',
+      'Stop': '停止',
     },
     'de': {
       'Unknown': 'Unbekannt',
@@ -69,6 +78,9 @@ class TranslationService {
       'Tank': 'Tank',
       'Heal': 'Heiler',
       'DPS': 'DPS',
+      'NoData': 'Keine Daten',
+      'Start': 'Starten',
+      'Stop': 'Stoppen',
     },
     'ru': {
       'Unknown': 'Неизвестно',
@@ -83,6 +95,9 @@ class TranslationService {
       'Tank': 'Танк',
       'Heal': 'Лекарь',
       'DPS': 'Урон',
+      'NoData': 'Нет данных',
+      'Start': 'Старт',
+      'Stop': 'Стоп',
     },
     'uk': {
       'Unknown': 'Невідомо',
@@ -97,6 +112,9 @@ class TranslationService {
       'Tank': 'Танк',
       'Heal': 'Лікар',
       'DPS': 'ДПС',
+      'NoData': 'Немає даних',
+      'Start': 'Старт',
+      'Stop': 'Стоп',
     },
   };
 

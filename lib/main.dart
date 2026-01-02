@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/analyze/packet_analyzer_v2.dart';
 import 'core/state/data_storage.dart';
 import 'core/models/classes.dart';
+import 'core/services/translation_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -656,7 +657,7 @@ class _HomePageState extends State<HomePage> {
               ),
               onPressed: _toggleService,
               child: Text(
-                _isVpnRunning ? 'Arrêter' : 'Démarrer',
+                _isVpnRunning ? TranslationService().translate('Stop') : TranslationService().translate('Start'),
                 style: const TextStyle(fontSize: 24, color: Colors.white),
               ),
             ),
@@ -710,8 +711,8 @@ class _PlayerListState extends State<PlayerList> {
     }).toList();
 
     if (filtered.isEmpty) {
-      return const Center(
-        child: Text("No data", style: TextStyle(color: Colors.white54, fontSize: 10)),
+      return Center(
+        child: Text(TranslationService().translate('NoData'), style: const TextStyle(color: Colors.white54, fontSize: 10)),
       );
     }
 
