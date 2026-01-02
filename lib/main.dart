@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:fixnum/fixnum.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/analyze/packet_analyzer_v2.dart';
 import 'core/state/data_storage.dart';
 import 'core/models/classes.dart';
@@ -38,6 +39,12 @@ class _OverlayWidgetState extends State<OverlayWidget>
   double _windowX = 0;
   double _windowY = 0;
   
+  // Persistent positions
+  double _fullX = 0;
+  double _fullY = 100;
+  double _miniX = 0;
+  double _miniY = 100;
+
   // Drag helpers
   double _lastMoveX = 0;
   double _lastMoveY = 0;
@@ -63,6 +70,63 @@ class _OverlayWidgetState extends State<OverlayWidget>
         });
       }
     });
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _fullX = prefs.getDouble('overlay_full_x') ?? 0;
+      _fullY = prefs.getDouble('overlay_full_y') ?? 100;
+      _miniX = prefs.getDouble('overlay_mini_x') ?? 0;
+      _miniY = prefs.getDouble('overlay_mini_y') ?? 100;
+      _restoredWidth = prefs.getDouble('overlay_width') ?? 600;
+      _restoredHeight = prefs.getDouble('overlay_height') ?? 400;
+      _isMinimized = prefs.getBool('overlay_minimized') ?? false;
+    });
+
+    // Apply initial state
+    if (_isMinimized) {
+      _windowX = _miniX;
+      _windowY = _miniY;
+      await FlutterOverlayWindow.resizeOverlay(135, 30, false);
+    } else {
+      _windowX = _fullX;
+      _windowY = _fullY;
+      await FlutterOverlayWindow.resizeOverlay(
+        _restoredWidth.toInt(),
+        _restoredHeight.toInt(),
+        false,
+      );
+    }
+    await FlutterOverlayWindow.moveOverlay(OverlayPosition(_windowX, _windowY));
+  }
+
+  Future<void> _savePosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_isMinimized) {
+      _miniX = _windowX;
+      _miniY = _windowY;
+      await prefs.setDouble('overlay_mini_x', _miniX);
+      await prefs.setDouble('overlay_mini_y', _miniY);
+    } else {
+      _fullX = _windowX;
+      _fullY = _windowY;
+      await prefs.setDouble('overlay_full_x', _fullX);
+      await prefs.setDouble('overlay_full_y', _fullY);
+    }
+  }
+
+  Future<void> _saveSize() async {
+    if (_isMinimized) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('overlay_width', _restoredWidth);
+    await prefs.setDouble('overlay_height', _restoredHeight);
+  }
+
+  Future<void> _saveMinimizedState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('overlay_minimized', _isMinimized);
   }
 
   @override
@@ -115,19 +179,37 @@ class _OverlayWidgetState extends State<OverlayWidget>
              final dpr = MediaQuery.of(context).devicePixelRatio;
              _windowDeltaX= details.globalPosition.dx-_lastMoveX;
              _windowDeltaY= details.globalPosition.dy - _lastMoveY;
+             
+             // Update local tracking
+             _windowX += _windowDeltaX/dpr;
+             _windowY += _windowDeltaY/dpr;
+             _lastMoveX = details.globalPosition.dx;
+             _lastMoveY = details.globalPosition.dy;
+
              FlutterOverlayWindow.moveOverlay(
-               OverlayPosition(_windowX+_windowDeltaX/dpr, _windowY+_windowDeltaY/dpr),
+               OverlayPosition(_windowX, _windowY),
              );
+        },
+        onPanEnd: (details) {
+          _isDragging = false;
+          _savePosition();
         },
         onTap: () async {
           setState(() {
             _isMinimized = false;
           });
+          _saveMinimizedState();
+          
+          // Restore full position
+          _windowX = _fullX;
+          _windowY = _fullY;
+          
           await FlutterOverlayWindow.resizeOverlay(
             _restoredWidth.toInt(),
             _restoredHeight.toInt(),
             false,
           );
+          await FlutterOverlayWindow.moveOverlay(OverlayPosition(_windowX, _windowY));
         },
         child: Container(
           decoration: _windowDecoration,
@@ -197,17 +279,22 @@ class _OverlayWidgetState extends State<OverlayWidget>
                   onPanUpdate: (details) {
                     if (!_isDragging) return;
                       final dpr = MediaQuery.of(context).devicePixelRatio;
-                      // Arrondir les deltas pour éviter l'accumulation d'erreurs de flottement
+                      
                     _windowDeltaX= details.globalPosition.dx-_lastMoveX;
                     _windowDeltaY= details.globalPosition.dy - _lastMoveY;
                     
-                    // Simple delta update.
-                    // With alignment: OverlayAlignment.topLeft, this should be stable.
-                    debugPrint("[BM Overlay] dpr:$dpr Moving overlay to (${_windowX + _windowDeltaX} [+${details.delta.dx}], ${_windowY + _windowDeltaY} [+${details.delta.dy}])");
+                    _windowX += _windowDeltaX/dpr;
+                    _windowY += _windowDeltaY/dpr;
+                    _lastMoveX = details.globalPosition.dx;
+                    _lastMoveY = details.globalPosition.dy;
                     
                     FlutterOverlayWindow.moveOverlay(
-                      OverlayPosition(_windowX+_windowDeltaX/dpr, _windowY+_windowDeltaY/dpr),
+                      OverlayPosition(_windowX, _windowY),
                     );
+                  },
+                  onPanEnd: (details) {
+                    _isDragging = false;
+                    _savePosition();
                   },
                   child: Container(
                     height: 32, // Reduced height
@@ -241,7 +328,14 @@ class _OverlayWidgetState extends State<OverlayWidget>
                                 setState(() {
                                   _isMinimized = true;
                                 });
+                                _saveMinimizedState();
+                                
+                                // Restore mini position
+                                _windowX = _miniX;
+                                _windowY = _miniY;
+                                
                                 await FlutterOverlayWindow.resizeOverlay(135, 30, false);
+                                await FlutterOverlayWindow.moveOverlay(OverlayPosition(_windowX, _windowY));
                               },
                               child: const Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 2),
@@ -324,6 +418,9 @@ class _OverlayWidgetState extends State<OverlayWidget>
                     newHeight.toInt(),
                     false,
                   );
+                },
+                onPanEnd: (details) {
+                  _saveSize();
                 },
                 child: Container(
                   width: 30,
