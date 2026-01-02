@@ -452,7 +452,7 @@ class _HomePageState extends State<HomePage> {
       //    debugPrint("[BM Main] Sending Overlay Update for Me ($uid): Name=${info?.name}, DPS=${dpsData.simpleDps}");
       // }
       return {
-        'name': info?.name ?? "Unknown (${uid.toString()})",
+        'name': info?.name ?? "Unknown",
         'isMe': uid == storage.currentPlayerUuid,
         'classId': info?.professionId ?? 0,
         'dps': dpsData.simpleDps,
@@ -704,6 +704,11 @@ class _PlayerListState extends State<PlayerList> {
     final total = (p[totalKey] as num?)?.toInt() ?? 0;
     final percent = (val / maxVal).clamp(0.0, 1.0);
 
+    String name = p['name']?.toString() ?? "Unknown";
+    if (p['isMe'] == true && (name == "Unknown" || name.isEmpty)) {
+      name = "Moi";
+    }
+
     return Container(
       height: 18,
       padding: const EdgeInsets.only(bottom: 1),
@@ -723,7 +728,7 @@ class _PlayerListState extends State<PlayerList> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    "${index + 1}. ${p['name']}",
+                    "${index + 1}. $name",
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w500,
