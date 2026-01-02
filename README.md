@@ -64,6 +64,9 @@ flutter build apk --release
 **Remerciements / Mention spéciale**
 - Un grand merci au projet PC BlueMeter qui m'a été d'une grande utilité pour établir les bases de ce projet. Si vous cherchez la version PC (DPS Meter pour le même jeu), rendez-vous sur : https://github.com/caaatto/BlueMeter
 
+**Dons / Soutien**
+ - Si vous souhaitez soutenir le projet, vous pouvez m'offrir un café via PayPal : https://paypal.me/JBourny
+
 ---
 
 ## English
@@ -129,3 +132,7 @@ flutter build apk --release
 
 **Acknowledgements**
 - Many thanks to the PC BlueMeter project which provided essential guidance for this project. If you are looking for the PC version, visit: https://github.com/caaatto/BlueMeter
+
+**Support / Donations**
+ - If you'd like to support the project, you can buy me a coffee via PayPal: https://paypal.me/JBourny
+
