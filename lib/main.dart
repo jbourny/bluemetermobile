@@ -356,15 +356,15 @@ class _OverlayWidgetState extends State<OverlayWidget>
                                 child: Icon(Icons.refresh, size: 16, color: Colors.white70),
                               ),
                             ),
-                            GestureDetector(
-                              onTap: () async {
-                                await FlutterOverlayWindow.closeOverlay();
-                              },
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 2),
-                                child: Icon(Icons.settings, size: 16, color: Colors.white70),
-                              ),
-                            ),
+                            // GestureDetector(
+                            //   onTap: () async {
+                            //     await FlutterOverlayWindow.closeOverlay();
+                            //   },
+                            //   child: const Padding(
+                            //     padding: EdgeInsets.symmetric(horizontal: 2),
+                            //     child: Icon(Icons.settings, size: 16, color: Colors.white70),
+                            //   ),
+                            // ),
                           ],
                         ),
                       ],
@@ -651,35 +651,42 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _toggleService() async {
+    if (_isVpnRunning) {
+      await _stopVpn();
+      await FlutterOverlayWindow.closeOverlay();
+    } else {
+      final bool status = await FlutterOverlayWindow.isPermissionGranted();
+      if (!status) {
+        await FlutterOverlayWindow.requestPermission();
+        return;
+      }
+      
+      await _startOverlay();
+      await _startVpn();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('BlueMeter Mobile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              DataStorage().reset();
-            },
-          ),
-          IconButton(icon: const Icon(Icons.layers), onPressed: _startOverlay),
-          IconButton(
-            icon: Icon(_isVpnRunning ? Icons.stop : Icons.play_arrow),
-            color: _isVpnRunning ? Colors.red : Colors.green,
-            onPressed: _isVpnRunning ? _stopVpn : _startVpn,
-          ),
-        ],
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text("Overlay is active"),
-            const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _startOverlay,
-              child: const Text('Show DPS Overlay'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                backgroundColor: _isVpnRunning ? Colors.red : Colors.green,
+              ),
+              onPressed: _toggleService,
+              child: Text(
+                _isVpnRunning ? 'Arrêter' : 'Démarrer',
+                style: const TextStyle(fontSize: 24, color: Colors.white),
+              ),
             ),
           ],
         ),
