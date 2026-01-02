@@ -45,7 +45,5 @@ class DpsData {
     double seconds = (lastLoggedTick - startLoggedTick!) / 1000.0;
     if (seconds < 1.0) seconds = 1.0;
     return totalTakenDamage.toDouble() / seconds;
-    if (seconds <= 0) return totalTakenDamage.toDouble();
-    return totalTakenDamage.toDouble() / seconds;
   }
 }

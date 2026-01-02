@@ -134,7 +134,7 @@ abstract class BaseDeltaInfoProcessor implements IMessageProcessor {
              // Handle Damage
              
              if (d.type == EDamageType.normal || d.type == EDamageType.miss) { 
-                if (isAttackerPlayer) {
+                if (isAttackerPlayer || isTargetPlayer) {
                   _storage.addDamage(attackerUuid, targetUuid, damageValue, DateTime.now().millisecondsSinceEpoch);
                 }
              }
