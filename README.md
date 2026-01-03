@@ -59,7 +59,7 @@ flutter build apk --release
 - L'application lit uniquement les informations nécessaires pour afficher les dégâts/soins reçus et infligés en jeu. Aucune donnée personnelle n'est collectée ni envoyée.
 
 **Licence**
-- À définir (ajoutez ici la licence choisie, ex. MIT).
+- Ce projet est sous license GNU Affero General Public License V3.
 
 **Remerciements / Mention spéciale**
 - Un grand merci au projet PC BlueMeter qui m'a été d'une grande utilité pour établir les bases de ce projet. Si vous cherchez la version PC (DPS Meter pour le même jeu), rendez-vous sur : https://github.com/caaatto/BlueMeter
@@ -128,7 +128,7 @@ flutter build apk --release
 - The app only reads what is necessary to display damage/heal information from the game. No personal data is collected or transmitted.
 
 **License**
-- To be decided (add your chosen license here, e.g. MIT).
+- This project is licensed under the GNU Affero General Public License v3.
 
 **Acknowledgements**
 - Many thanks to the PC BlueMeter project which provided essential guidance for this project. If you are looking for the PC version, visit: https://github.com/caaatto/BlueMeter
