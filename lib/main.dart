@@ -125,9 +125,15 @@ class _OverlayWidgetState extends State<OverlayWidget>
   }
 
   BoxDecoration get _windowDecoration => BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(width: 0.5, color: Colors.white.withValues(alpha: 0.9)),
+        color: Colors.black.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(0),
+        // Border-left
+        border: Border(
+          left: BorderSide(
+            color: Colors.white.withValues(alpha: 0.9),
+            width: 0.5,
+          ),
+        ),
       );
 
   Widget _buildMinimized() {
