@@ -63,7 +63,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     FlutterOverlayWindow.overlayListener.listen((event) {
       if (event is List) {
         setState(() {
@@ -285,7 +285,6 @@ class _OverlayWidgetState extends State<OverlayWidget>
                             labelColor: Colors.blue,
                             unselectedLabelColor: Colors.white,
                             tabs: const [
-                              Tab(child: Icon(Icons.star, size: 16)),
                               Tab(child: Icon(Icons.flash_on, size: 16)), // DPS (Sword replacement)
                               Tab(child: Icon(Icons.shield, size: 16)),
                               Tab(child: Icon(Icons.local_hospital, size: 16)),
@@ -348,7 +347,6 @@ class _OverlayWidgetState extends State<OverlayWidget>
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      PlayerList(players: _players, metricType: "dps"),
                       PlayerList(players: _players, metricType: "dps"),
                       PlayerList(players: _players, metricType: "taken"),
                       PlayerList(players: _players, metricType: "heal"),
