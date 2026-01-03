@@ -35,6 +35,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Map<String, dynamic>> _players = [];
+  int _combatTime = 0;
 
   // Track window position
   double _windowX = 0;
@@ -68,6 +69,15 @@ class _OverlayWidgetState extends State<OverlayWidget>
       if (event is List) {
         setState(() {
           _players = List<Map<String, dynamic>>.from(event);
+        });
+      } else if (event is Map) {
+        setState(() {
+          if (event.containsKey('players')) {
+            _players = List<Map<String, dynamic>>.from(event['players']);
+          }
+          if (event.containsKey('combatTime')) {
+            _combatTime = event['combatTime'] as int;
+          }
         });
       }
     });
@@ -291,6 +301,19 @@ class _OverlayWidgetState extends State<OverlayWidget>
                             ],
                           ),
                         ),
+                        // Timer
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            _formatTime(_combatTime),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+                            ),
+                          ),
+                        ),
                         // Actions
                         Row(
                           mainAxisSize: MainAxisSize.min,
@@ -437,6 +460,12 @@ class _OverlayWidgetState extends State<OverlayWidget>
     }
     return number.toStringAsFixed(0);
   }
+
+  String _formatTime(int seconds) {
+    final int m = seconds ~/ 60;
+    final int s = seconds % 60;
+    return "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -510,6 +539,8 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _updateOverlay() async {
     final storage = DataStorage();
+    storage.checkTimeout();
+
     final playersFutures = storage.fullDpsDatas.entries
     .where((e) => e.value.totalAttackDamage > Int64.ZERO || e.value.totalHeal > Int64.ZERO || e.value.totalTakenDamage > Int64.ZERO)
     .map((e) async {
@@ -534,12 +565,16 @@ class _HomePageState extends State<HomePage> {
     });
 
     final players = await Future.wait(playersFutures);
+    final combatDuration = storage.currentCombatDuration;
 
     // Sort by DPS by default, but we send all data so the overlay can sort based on tab
     // Actually, sorting logic should probably be in the overlay if it changes per tab.
     // But here we just send the list.
     
-    FlutterOverlayWindow.shareData(players);
+    FlutterOverlayWindow.shareData({
+      'players': players,
+      'combatTime': combatDuration.inSeconds,
+    });
   }
 
   Future<void> _onPacketData(dynamic event) async {

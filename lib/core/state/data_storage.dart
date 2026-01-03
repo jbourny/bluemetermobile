@@ -33,6 +33,49 @@ class DataStorage extends ChangeNotifier {
   final Map<Int64, PlayerInfo> _playerInfoDatas = {};
   final Map<Int64, DpsData> _fullDpsDatas = {};
 
+  // Combat Timer Logic
+  DateTime? _lastActionTime;
+  DateTime? _combatStartTime;
+  bool _isCombatActive = false;
+  Duration combatTimeout = const Duration(seconds: 30);
+
+  Duration get currentCombatDuration {
+    if (_combatStartTime == null) return Duration.zero;
+    if (_isCombatActive) {
+      return DateTime.now().difference(_combatStartTime!);
+    }
+    if (_lastActionTime != null) {
+      return _lastActionTime!.difference(_combatStartTime!);
+    }
+    return Duration.zero;
+  }
+
+  void checkTimeout() {
+    if (_isCombatActive && _lastActionTime != null) {
+      if (DateTime.now().difference(_lastActionTime!) > combatTimeout) {
+        _isCombatActive = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  void _onAction() {
+    final now = DateTime.now();
+    
+    // Check for timeout first to handle the case where we are "active" but timed out
+    if (_isCombatActive && _lastActionTime != null && now.difference(_lastActionTime!) > combatTimeout) {
+      _isCombatActive = false;
+    }
+
+    if (!_isCombatActive) {
+      // Start new combat
+      reset(resetTimer: false); // Don't reset timer fields here, we set them below
+      _isCombatActive = true;
+      _combatStartTime = now;
+    }
+    _lastActionTime = now;
+  }
+
   Map<Int64, PlayerInfo> get playerInfoDatas => Map.unmodifiable(_playerInfoDatas);
   
   // Filter DPS datas to only include entities that are identified as players (exist in playerInfoDatas)
@@ -90,6 +133,7 @@ class DataStorage extends ChangeNotifier {
   }
 
   void addDamage(Int64 attackerUid, Int64 targetUid, Int64 damage, int tick) {
+    _onAction();
     // 1. Add Damage Dealt to Attacker
     var attackerData = getOrCreateDpsData(attackerUid);
     attackerData.startLoggedTick ??= tick;
@@ -112,6 +156,7 @@ class DataStorage extends ChangeNotifier {
   }
 
   void addHealing(Int64 healerUid, Int64 targetUid, Int64 healAmount, int tick) {
+    _onAction();
     // 1. Add Heal Output to Healer
     var healerData = getOrCreateDpsData(healerUid);
     healerData.startLoggedTick ??= tick;
@@ -124,8 +169,13 @@ class DataStorage extends ChangeNotifier {
     notifyListeners();
   }
 
-  void reset() {
+  void reset({bool resetTimer = true}) {
     _fullDpsDatas.clear();
+    if (resetTimer) {
+      _combatStartTime = null;
+      _lastActionTime = null;
+      _isCombatActive = false;
+    }
     notifyListeners();
   }
 
