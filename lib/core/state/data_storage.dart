@@ -98,6 +98,7 @@ class DataStorage extends ChangeNotifier {
   }
   
   final Set<Int64> _notFoundUids = {};
+  final Set<Int64> _pendingFetches = {};
 
   Future<PlayerInfo?> getPlayerInfo(Int64 uid) async {
     if (_playerInfoDatas.containsKey(uid)) {
@@ -106,18 +107,33 @@ class DataStorage extends ChangeNotifier {
     if (_notFoundUids.contains(uid)) {
       return null;
     }
-    return await _fetchPlayerFromDb(uid);
+    if (_pendingFetches.contains(uid)) {
+      return null;
+    }
+
+    _pendingFetches.add(uid);
+    try {
+      return await _fetchPlayerFromDb(uid);
+    } finally {
+      _pendingFetches.remove(uid);
+    }
   }
 
   Future<PlayerInfo?> _fetchPlayerFromDb(Int64 uid) async {
     try {
       final player = await DatabaseService().getPlayer(uid);
       if (player != null) {
-        _playerInfoDatas[uid] = player;
-        notifyListeners();
+        // Only update if not already present (network update takes precedence)
+        if (!_playerInfoDatas.containsKey(uid)) {
+          _playerInfoDatas[uid] = player;
+          notifyListeners();
+        }
         return player;
       } else {
-        _notFoundUids.add(uid);
+        // Only mark as not found if not present
+        if (!_playerInfoDatas.containsKey(uid)) {
+          _notFoundUids.add(uid);
+        }
       }
     } catch (e) {
       debugPrint("[BM] Error fetching player from DB: $e");
@@ -129,6 +145,13 @@ class DataStorage extends ChangeNotifier {
     if (!_fullDpsDatas.containsKey(uid)) {
       _fullDpsDatas[uid] = DpsData(uid: uid);
     }
+
+    if (!_playerInfoDatas.containsKey(uid) && 
+        !_notFoundUids.contains(uid) && 
+        !_pendingFetches.contains(uid)) {
+      getPlayerInfo(uid);
+    }
+
     return _fullDpsDatas[uid]!;
   }
 
