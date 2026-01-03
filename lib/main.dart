@@ -801,9 +801,28 @@ class _PlayerListState extends State<PlayerList> {
               children: [
                 Container(width: 2, color: _getClassColor(cls)),
                 const SizedBox(width: 4),
+                Text(
+                  "${index + 1}.",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 11,
+                    shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                if (cls != Classes.unknown) ...[
+                  Image.asset(
+                    cls.iconPath,
+                    width: 12,
+                    height: 12,
+                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 Expanded(
                   child: Text(
-                    "${index + 1}. $name",
+                    name,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w500,

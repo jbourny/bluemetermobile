@@ -28,6 +28,8 @@ enum Classes {
 
   String get name => TranslationService().translate(_key);
 
+  String get iconPath => "assets/img/classes/${_key.toLowerCase()}.webp";
+
   static Classes fromId(int? id) {
     if (id == null) return Classes.unknown;
     return Classes.values.firstWhere(
