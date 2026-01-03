@@ -137,6 +137,20 @@ class _OverlayWidgetState extends State<OverlayWidget>
       );
 
   Widget _buildMinimized() {
+    // Calculate Rank
+    var filtered = _players.where((p) {
+      final total = (p['total'] as num?)?.toDouble() ?? 0.0;
+      return total > 0;
+    }).toList();
+
+    filtered.sort((a, b) {
+      final valA = (a['dps'] as num?)?.toDouble() ?? 0.0;
+      final valB = (b['dps'] as num?)?.toDouble() ?? 0.0;
+      return valB.compareTo(valA);
+    });
+
+    final myIndex = filtered.indexWhere((p) => p['isMe'] == true);
+    final myRank = myIndex != -1 ? myIndex + 1 : 0;
 
     final myData = _players.firstWhere(
       (p) => p['isMe'] == true,
@@ -211,16 +225,29 @@ class _OverlayWidgetState extends State<OverlayWidget>
                 children: [
                   const Icon(Icons.flash_on, size: 16, color: Colors.blue),
                   const SizedBox(width: 4),
-                  Text(
-                    _formatNumber(myDps),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                  if (myRank > 0)
+                    Text(
+                      "#$myRank",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
                 ],
               ),
+              Expanded(
+                child: Text(
+                  _formatNumber(myDps),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () async {
                    final sendPort = IsolateNameServer.lookupPortByName('overlay_communication_port');
@@ -436,21 +463,6 @@ class _OverlayWidgetState extends State<OverlayWidget>
         ),
       ),
     );
-  }
-
-
-
-  Color _getClassColor(Classes cls) {
-    switch (cls.role) {
-      case Role.tank:
-        return Colors.blue;
-      case Role.heal:
-        return Colors.green;
-      case Role.dps:
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
   }
 
   String _formatNumber(num number) {
