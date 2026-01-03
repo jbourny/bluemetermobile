@@ -37,7 +37,7 @@ class DataStorage extends ChangeNotifier {
   DateTime? _lastActionTime;
   DateTime? _combatStartTime;
   bool _isCombatActive = false;
-  Duration combatTimeout = const Duration(seconds: 30);
+  Duration combatTimeout = const Duration(seconds: 15);
 
   Duration get currentCombatDuration {
     if (_combatStartTime == null) return Duration.zero;
